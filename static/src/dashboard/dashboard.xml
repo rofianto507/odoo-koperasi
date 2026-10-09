@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+
+<t t-name="koperasi.Dashboard">
+<div class="kop-dashboard">
+
+    <!-- ── Sidebar ────────────────────────────────────────────────────────── -->
+    <div t-attf-class="kop-sidebar #{ state.sidebarCollapsed ? 'collapsed' : '' }">
+        <div class="kop-sidebar-brand">
+            <img class="kop-sidebar-logo" src="/koperasi/static/src/img/logo.png" alt="Koperasi"/>
+        </div>
+        <div class="kop-sidebar-section">
+            <div class="kop-sidebar-section-title">Dashboard</div>
+            <t t-foreach="bagian" t-as="b" t-key="b.id">
+                <div t-attf-class="kop-sidebar-item #{ state.section === b.id ? 'active' : '' }"
+                     t-on-click="() => this.setSection(b.id)" t-att-title="b.label">
+                    <i t-attf-class="fa #{b.ikon}"/>
+                    <span t-esc="b.label"/>
+                </div>
+            </t>
+        </div>
+        <div class="kop-sidebar-footer">
+            <div class="kop-sidebar-toggle" t-on-click="toggleSidebar"
+                 t-att-title="state.sidebarCollapsed ? 'Buka sidebar' : 'Tutup sidebar'">
+                <i t-attf-class="fa #{ state.sidebarCollapsed ? 'fa-chevron-right' : 'fa-chevron-left' }"/>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Konten ─────────────────────────────────────────────────────────── -->
+    <div class="kop-main">
+
+        <div class="kop-header">
+            <div class="kop-header-left">
+                <i t-attf-class="fa #{bagianAktif.ikon} kop-header-icon"/>
+                <h1>Dashboard <t t-esc="bagianAktif.label"/></h1>
+                <!-- Hanya bila pengguna bisa memilih mitra; admin mitra (satu mitra) tidak perlu label ini -->
+                <span t-if="state.data and state.data.mitra_list.length > 1" class="kop-header-sub" t-esc="namaMitra"/>
+                <span t-if="state.data" class="kop-header-sub" t-esc="state.data.periode.label"/>
+            </div>
+            <div class="kop-header-right">
+                <t t-if="state.data">
+                    <span class="kop-filter-label">Periode:</span>
+                    <select class="kop-select kop-select--periode" t-on-change="onPeriodeChange">
+                        <t t-foreach="state.data.periode_list" t-as="p" t-key="p.id">
+                            <option t-att-value="p.id" t-att-selected="periodeDipilih(p.id)" t-esc="p.name"/>
+                        </t>
+                        <option value="semua" t-att-selected="periodeDipilih(false)">Semua Periode</option>
+                    </select>
+                </t>
+                <t t-if="state.data and state.data.mitra_list.length > 1">
+                    <span class="kop-filter-label">Mitra:</span>
+                    <select class="kop-select" t-on-change="onMitraChange">
+                        <option value="" t-att-selected="!state.mitraId">Semua Mitra</option>
+                        <t t-foreach="state.data.mitra_list" t-as="m" t-key="m.id">
+                            <option t-att-value="m.id" t-att-selected="state.mitraId === m.id" t-esc="m.name"/>
+                        </t>
+                    </select>
+                </t>
+            </div>
+        </div>
+
+        <div t-if="state.galat" class="kop-error">
+            <i class="fa fa-exclamation-triangle"/> <t t-esc="state.galat"/>
+        </div>
+
+        <div t-if="state.loading and !state.data" class="kop-loading">
+            <i class="fa fa-spinner fa-spin"/> <span>Memuat data...</span>
+        </div>
+
+        <t t-if="state.data">
+
+            <!-- Kartu utama -->
+            <div class="kop-card-row">
+                <t t-foreach="kartu" t-as="c" t-key="c.label">
+                    <div t-attf-class="kop-card kop-card--#{c.warna}" t-on-click="() => c.aksi()">
+                        <i t-attf-class="fa #{c.ikon} kop-card-bg-icon"/>
+                        <div><span class="kop-card-chip" t-esc="c.chip"/></div>
+                        <div class="kop-card-value" t-esc="c.nilai"/>
+                        <div class="kop-card-label" t-esc="c.label"/>
+                        <div class="kop-card-sub" t-esc="c.sub"/>
+                        <div t-if="c.bar !== undefined" class="kop-card-bar">
+                            <div class="kop-card-bar-fill" t-attf-style="width: #{c.bar}%"/>
+                        </div>
+                    </div>
+                </t>
+            </div>
+
+            <!-- Antrean pekerjaan (Ringkasan) -->
+            <t t-if="antrean.length">
+                <div class="kop-section-label"><i class="fa fa-tasks"/> Perlu Tindakan</div>
+                <div class="kop-kpi-row">
+                    <t t-foreach="antrean" t-as="k" t-key="k.label">
+                        <div t-attf-class="kop-kpi-card #{ k.nilai ? '' : 'kop-kpi-card--nol' }"
+                             t-on-click="() => k.aksi()">
+                            <div t-attf-class="kop-kpi-icon kop-kpi-icon--#{k.warna}">
+                                <i t-attf-class="fa #{k.ikon}"/>
+                            </div>
+                            <div class="kop-kpi-body">
+                                <div class="kop-kpi-value" t-esc="angka(k.nilai)"/>
+                                <div class="kop-kpi-label" t-esc="k.label"/>
+                                <div class="kop-kpi-sub" t-esc="k.sub"/>
+                            </div>
+                        </div>
+                    </t>
+                </div>
+            </t>
+
+            <!-- Grafik: elemen diberi t-key per bagian agar dibuat ulang saat bagian berganti -->
+            <div class="kop-charts-row" t-key="state.section">
+                <div class="kop-chart-card">
+                    <div class="kop-chart-header">
+                        <span t-esc="judulGrafik[0][0]"/>
+                        <span class="kop-chart-sub" t-esc="judulGrafik[0][1]"/>
+                    </div>
+                    <div class="kop-echarts" t-ref="chartUtama"/>
+                </div>
+                <div class="kop-chart-card">
+                    <div class="kop-chart-header">
+                        <span t-esc="judulGrafik[1][0]"/>
+                        <span class="kop-chart-sub" t-esc="judulGrafik[1][1]"/>
+                    </div>
+                    <div class="kop-echarts" t-ref="chartSamping"/>
+                </div>
+            </div>
+
+            <!-- Tabel -->
+            <div class="kop-bottom-row">
+                <t t-foreach="tabel" t-as="t" t-key="t.judul">
+                    <div class="kop-panel">
+                        <div class="kop-panel-header">
+                            <span><i t-attf-class="fa #{t.ikon}"/> <t t-esc="t.judul"/></span>
+                            <span t-attf-class="kop-count-badge kop-count-badge--#{t.lencanaWarna or 'biru'}"
+                                  t-esc="t.lencana"/>
+                        </div>
+                        <div t-if="!t.baris.length" class="kop-empty">
+                            <i t-attf-class="fa #{ t.kosongOk ? 'fa-check-circle kop-icon--hijau' : 'fa-inbox' } kop-empty-icon"/>
+                            <span t-esc="t.kosong"/>
+                        </div>
+                        <div t-else="" class="kop-table-wrap">
+                            <table class="kop-table">
+                                <thead>
+                                    <tr>
+                                        <t t-foreach="t.kolom" t-as="k" t-key="k.key">
+                                            <th t-att-class="['rp', 'angka', 'progres'].includes(k.tipe) ? 'kop-num' : ''"
+                                                t-esc="k.label"/>
+                                        </t>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="t.baris" t-as="r" t-key="r.id">
+                                        <tr class="kop-tr" t-on-click="() => this.bukaRecord(t.model, r.id)">
+                                            <t t-foreach="t.kolom" t-as="k" t-key="k.key">
+                                                <td t-if="k.tipe === 'rp'"
+                                                    t-attf-class="kop-num #{ k.tebal ? 'kop-tebal' : '' } #{ k.merah and r[k.key] ? 'kop-merah' : '' }"
+                                                    t-esc="rp(r[k.key])"/>
+                                                <td t-elif="k.tipe === 'angka'" class="kop-num" t-esc="angka(r[k.key])"/>
+                                                <td t-elif="k.tipe === 'progres'" class="kop-num">
+                                                    <t t-esc="r.dibayar"/> / <t t-esc="r.tenor"/>
+                                                </td>
+                                                <td t-elif="k.tipe === 'kode'" class="kop-code" t-esc="r[k.key] or '-'"/>
+                                                <td t-elif="k.tipe === 'status'">
+                                                    <span t-att-class="kelasStatus(r.state)" t-esc="r.state_label"/>
+                                                </td>
+                                                <td t-else="" t-esc="r[k.key] or '-'" t-att-title="r[k.key]"/>
+                                            </t>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </t>
+            </div>
+
+        </t>
+    </div>
+</div>
+</t>
+
+</templates>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="pengaturan_utama" model="koperasi.pengaturan">
+            <field name="name">Pengaturan Simpanan</field>
+        </record>
+
+        <record id="produk_pinjaman_reguler" model="koperasi.pinjaman.produk">
+            <field name="name">Pinjaman Reguler</field>
+            <field name="jasa_persen">1.0</field>
+            <field name="admin_mode">persen</field>
+            <field name="admin_persen">2.0</field>
+            <field name="tenor_min">3</field>
+            <field name="tenor_max">12</field>
+        </record>
+
+        <!-- Saat instalasi: sediakan periode 12 bulan ke depan -->
+        <function model="koperasi.periode" name="_pastikan_ke_depan"/>
+
+        <!-- Tiap tanggal 1: buat tagihan Draft bulan berjalan untuk semua mitra -->
+        <record id="ir_cron_koperasi_buat_tagihan" model="ir.cron">
+            <field name="name">Koperasi: Buat Tagihan Bulanan</field>
+            <field name="model_id" ref="model_koperasi_tagihan"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_buat_tagihan()</field>
+            <field name="user_id" ref="base.user_root"/>
+            <field name="interval_number">1</field>
+            <field name="interval_type">months</field>
+            <field name="nextcall" eval="(DateTime.now() + relativedelta(months=1, day=1, hour=0, minute=30, second=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+    </data>
+</odoo>

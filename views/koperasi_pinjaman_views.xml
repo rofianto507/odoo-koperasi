@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- ============ Produk pinjaman ============ -->
+        <record id="view_koperasi_pinjaman_produk_list" model="ir.ui.view">
+            <field name="name">koperasi.pinjaman.produk.list</field>
+            <field name="model">koperasi.pinjaman.produk</field>
+            <field name="arch" type="xml">
+                <list string="Produk Pinjaman">
+                    <field name="sequence" widget="handle"/>
+                    <field name="currency_id" column_invisible="1"/>
+                    <field name="name"/>
+                    <field name="jasa_persen"/>
+                    <field name="admin_mode"/>
+                    <field name="admin_persen" invisible="admin_mode != 'persen'"/>
+                    <field name="admin_nominal" invisible="admin_mode != 'nominal'"/>
+                    <field name="tenor_min"/>
+                    <field name="tenor_max"/>
+                    <field name="pinjaman_count"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_koperasi_pinjaman_produk_form" model="ir.ui.view">
+            <field name="name">koperasi.pinjaman.produk.form</field>
+            <field name="model">koperasi.pinjaman.produk</field>
+            <field name="arch" type="xml">
+                <form string="Produk Pinjaman">
+                    <sheet>
+                        <widget name="web_ribbon" title="Diarsipkan" bg_color="text-bg-danger"
+                                invisible="active"/>
+                        <field name="active" invisible="1"/>
+                        <field name="currency_id" invisible="1"/>
+                        <div class="oe_title">
+                            <h1><field name="name" placeholder="Nama produk, mis. Pinjaman Reguler"/></h1>
+                        </div>
+                        <div class="row">
+                            <div class="col-lg-7">
+                                <group col="1">
+                                    <group string="Jasa untuk Platform">
+                                        <field name="jasa_persen"/>
+                                    </group>
+                                    <group string="Biaya Admin (dipotong saat pencairan)">
+                                        <field name="admin_mode" widget="radio" string="Dasar Perhitungan"/>
+                                        <field name="admin_persen" invisible="admin_mode != 'persen'"
+                                               required="admin_mode == 'persen'"/>
+                                        <field name="admin_nominal" invisible="admin_mode != 'nominal'"
+                                               required="admin_mode == 'nominal'"/>
+                                    </group>
+                                    <group string="Tenor">
+                                        <field name="tenor_min"/>
+                                        <field name="tenor_max"/>
+                                    </group>
+                                    <group string="Keterangan">
+                                        <field name="keterangan" nolabel="1" colspan="2"
+                                               placeholder="Catatan tentang produk ini..."/>
+                                    </group>
+                                </group>
+                                <p class="text-muted">
+                                    Batas potongan gaji dan pembulatan plafon berlaku untuk semua
+                                    produk dan diatur di Pengaturan Simpanan. Perubahan parameter
+                                    produk hanya berlaku untuk pinjaman yang dibuat sesudahnya.
+                                </p>
+                            </div>
+                            <div class="col-lg-5">
+                                <div class="border rounded-3 p-3 bg-view">
+                                    <h4 class="mb-0">Simulasi Produk</h4>
+                                    <div class="small text-muted mb-2">Uji parameter sebelum disimpan</div>
+                                    <group>
+                                        <field name="sim_pokok"/>
+                                        <field name="sim_tenor"/>
+                                        <field name="sim_gaji"/>
+                                        <field name="sim_simsula"/>
+                                    </group>
+                                    <field name="sim_hasil" nolabel="1" readonly="1"/>
+                                </div>
+                            </div>
+                        </div>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_koperasi_pinjaman_produk" model="ir.actions.act_window">
+            <field name="name">Produk Pinjaman</field>
+            <field name="res_model">koperasi.pinjaman.produk</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <!-- ============ Pinjaman ============ -->
+        <record id="view_koperasi_pinjaman_list" model="ir.ui.view">
+            <field name="name">koperasi.pinjaman.list</field>
+            <field name="model">koperasi.pinjaman</field>
+            <field name="arch" type="xml">
+                <list string="Pinjaman"
+                      decoration-muted="state == 'draft'"
+                      decoration-warning="state in ('diajukan', 'disetujui')"
+                      decoration-danger="state == 'ditolak'">
+                    <field name="currency_id" column_invisible="1"/>
+                    <field name="name"/>
+                    <field name="anggota_id"/>
+                    <field name="mitra_id"/>
+                    <field name="produk_id" optional="show"/>
+                    <field name="pokok" sum="Total"/>
+                    <field name="tenor"/>
+                    <field name="angsuran_bulan"/>
+                    <field name="sisa_pokok" sum="Total"/>
+                    <field name="tanggal_cair" optional="show"/>
+                    <field name="state" widget="badge"
+                           decoration-muted="state == 'draft'"
+                           decoration-warning="state in ('diajukan', 'disetujui')"
+                           decoration-info="state == 'berjalan'"
+                           decoration-success="state == 'lunas'"
+                           decoration-danger="state == 'ditolak'"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_koperasi_pinjaman_form" model="ir.ui.view">
+            <field name="name">koperasi.pinjaman.form</field>
+            <field name="model">koperasi.pinjaman</field>
+            <field name="arch" type="xml">
+                <form string="Pinjaman">
+                    <header>
+                        <button name="action_ajukan" type="object" string="Validasi &amp; Ajukan"
+                                class="btn-primary" invisible="state not in ('draft', 'ditolak')"/>
+                        <button name="action_setujui" type="object" string="Setujui"
+                                class="btn-primary" invisible="state != 'diajukan'"
+                                groups="koperasi.group_koperasi_operator"/>
+                        <button name="action_cairkan" type="object" string="Cairkan"
+                                class="btn-primary" invisible="state != 'disetujui'"
+                                confirm="Catat pencairan hari ini dan buat jadwal angsuran mulai periode berikutnya?"
+                                groups="koperasi.group_koperasi_operator"/>
+                        <button name="action_buka_tolak_wizard" type="object" string="Tolak"
+                                invisible="state not in ('diajukan', 'disetujui')"
+                                groups="koperasi.group_koperasi_operator"/>
+                        <field name="state" widget="statusbar"
+                               statusbar_visible="draft,diajukan,disetujui,berjalan,lunas"/>
+                    </header>
+                    <sheet>
+                        <div class="alert alert-danger" role="alert" invisible="state != 'ditolak'">
+                            <strong>Alasan penolakan: </strong>
+                            <field name="alasan_tolak" readonly="1" nolabel="1" class="d-inline"/>
+                        </div>
+                        <field name="currency_id" invisible="1"/>
+                        <field name="layak" invisible="1"/>
+                        <div class="alert alert-warning" role="alert"
+                             invisible="rekening_nomor or state not in ('diajukan', 'disetujui')">
+                            <i class="fa fa-exclamation-triangle me-1" title="Peringatan"/>
+                            Rekening pencairan anggota belum diisi. Lengkapi dulu di form anggota
+                            (bagian Rekening Pencairan) sebelum dana dicairkan.
+                        </div>
+                        <div class="oe_title">
+                            <h1><field name="name" placeholder="Nomor dibuat saat disimpan"/></h1>
+                        </div>
+                        <div class="row">
+                            <div class="col-lg-6">
+                                <group col="1">
+                                    <group string="Pengajuan" name="pengajuan">
+                                        <field name="anggota_id"
+                                               readonly="state not in ('draft', 'ditolak')"
+                                               options="{'no_create': True}"/>
+                                        <field name="mitra_id" options="{'no_open': True}"/>
+                                        <field name="produk_id"
+                                               readonly="state not in ('draft', 'ditolak')"
+                                               options="{'no_create': True, 'no_open': True}"/>
+                                        <field name="pokok" readonly="state not in ('draft', 'ditolak')"/>
+                                        <field name="tenor" readonly="state not in ('draft', 'ditolak')"/>
+                                        <field name="keperluan"
+                                               readonly="state not in ('draft', 'ditolak')"/>
+                                    </group>
+                                    <group string="Cek Kelayakan" name="kelayakan"
+                                           invisible="state in ('berjalan', 'lunas')">
+                                        <field name="gaji_bersih"/>
+                                        <field name="batas_potongan"/>
+                                        <field name="potongan_simpanan"/>
+                                        <field name="angsuran_maks"/>
+                                        <field name="plafon" class="fw-bold"/>
+                                    </group>
+                                </group>
+                                <div class="alert alert-success" role="alert"
+                                     invisible="not layak or state in ('berjalan', 'lunas')">
+                                    <i class="fa fa-check-circle me-1" title="Layak"/>
+                                    <field name="pesan_kelayakan" nolabel="1" class="d-inline"/>
+                                </div>
+                                <div class="alert alert-warning" role="alert"
+                                     invisible="layak or state in ('berjalan', 'lunas')">
+                                    <i class="fa fa-exclamation-triangle me-1" title="Belum layak"/>
+                                    <field name="pesan_kelayakan" nolabel="1" class="d-inline"/>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <group col="1">
+                                    <group string="Rincian Pinjaman" name="rincian">
+                                        <field name="angsuran_bulan" class="fs-4 fw-bold"/>
+                                        <field name="pokok_bulan"/>
+                                        <label for="jasa_bulan"/>
+                                        <div class="d-flex gap-2">
+                                            <field name="jasa_bulan"/>
+                                            <span class="text-muted">(<field name="jasa_persen" class="oe_inline"/>% dari pokok)</span>
+                                        </div>
+                                        <field name="total_jasa"/>
+                                        <field name="total_bayar"/>
+                                        <field name="biaya_admin"/>
+                                        <field name="diterima" class="fw-bold"/>
+                                    </group>
+                                    <group string="Rekening Pencairan" name="rekening">
+                                        <field name="rekening_bank"/>
+                                        <field name="rekening_nomor" class="fw-bold"/>
+                                        <field name="rekening_atas_nama"/>
+                                    </group>
+                                    <group string="Posisi Pinjaman" name="posisi"
+                                           invisible="state not in ('berjalan', 'lunas')">
+                                        <field name="tanggal_cair"/>
+                                        <field name="angsuran_dibayar"/>
+                                        <field name="sisa_pokok" class="fw-bold"/>
+                                        <field name="tanggal_lunas" invisible="state != 'lunas'"/>
+                                    </group>
+                                </group>
+                            </div>
+                        </div>
+                        <notebook>
+                            <page string="Jadwal Angsuran" name="jadwal">
+                                <p class="text-muted" invisible="state in ('berjalan', 'lunas')">
+                                    Jadwal angsuran dibuat saat pinjaman dicairkan. Angsuran pertama
+                                    masuk tagihan periode setelah bulan pencairan.
+                                </p>
+                                <field name="angsuran_ids" invisible="state not in ('berjalan', 'lunas')">
+                                    <list decoration-success="status == 'dibayar'"
+                                          decoration-muted="status == 'terjadwal'">
+                                        <field name="currency_id" column_invisible="1"/>
+                                        <field name="ke"/>
+                                        <field name="periode_id"/>
+                                        <field name="pokok" sum="Total"/>
+                                        <field name="jasa" sum="Total"/>
+                                        <field name="total" sum="Total"/>
+                                        <field name="tagihan_id"/>
+                                        <field name="status" widget="badge"
+                                               decoration-muted="status == 'terjadwal'"
+                                               decoration-warning="status == 'ditagihkan'"
+                                               decoration-success="status == 'dibayar'"/>
+                                    </list>
+                                </field>
+                            </page>
+                            <page string="Riwayat Persetujuan" name="persetujuan">
+                                <group>
+                                    <group string="Mitra">
+                                        <field name="pengaju_id"/>
+                                        <field name="validator_mitra_id"/>
+                                        <field name="tanggal_ajukan"/>
+                                    </group>
+                                    <group string="Operator">
+                                        <field name="penyetuju_id"/>
+                                        <field name="tanggal_setuju"/>
+                                        <field name="tanggal_cair"/>
+                                    </group>
+                                </group>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <record id="view_koperasi_pinjaman_search" model="ir.ui.view">
+            <field name="name">koperasi.pinjaman.search</field>
+            <field name="model">koperasi.pinjaman</field>
+            <field name="arch" type="xml">
+                <search string="Cari Pinjaman">
+                    <field name="name"/>
+                    <field name="anggota_id"/>
+                    <field name="mitra_id"/>
+                    <field name="produk_id"/>
+                    <filter name="f_draft" string="Draft" domain="[('state', '=', 'draft')]"/>
+                    <filter name="f_diajukan" string="Menunggu Persetujuan" domain="[('state', '=', 'diajukan')]"/>
+                    <filter name="f_disetujui" string="Menunggu Pencairan" domain="[('state', '=', 'disetujui')]"/>
+                    <filter name="f_berjalan" string="Berjalan" domain="[('state', '=', 'berjalan')]"/>
+                    <filter name="f_lunas" string="Lunas" domain="[('state', '=', 'lunas')]"/>
+                    <filter name="f_ditolak" string="Ditolak" domain="[('state', '=', 'ditolak')]"/>
+                    <group>
+                        <filter name="g_mitra" string="Mitra" context="{'group_by': 'mitra_id'}"/>
+                        <filter name="g_produk" string="Produk" context="{'group_by': 'produk_id'}"/>
+                        <filter name="g_state" string="Status" context="{'group_by': 'state'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_koperasi_pinjaman" model="ir.actions.act_window">
+            <field name="name">Pinjaman</field>
+            <field name="res_model">koperasi.pinjaman</field>
+            <field name="view_mode">list,form</field>
+            <field name="search_view_id" ref="view_koperasi_pinjaman_search"/>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">Belum ada pinjaman</p>
+                <p>Admin mitra memasukkan pengajuan anggotanya, lalu operator menyetujui dan mencairkan.</p>
+            </field>
+        </record>
+
+    </data>
+</odoo>

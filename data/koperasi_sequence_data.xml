@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="seq_koperasi_anggota" model="ir.sequence">
+            <field name="name">Nomor Anggota Koperasi</field>
+            <field name="code">koperasi.anggota</field>
+            <field name="prefix">KOP-%(year)s-</field>
+            <field name="padding">5</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+        <record id="seq_koperasi_pinjaman" model="ir.sequence">
+            <field name="name">Nomor Pinjaman Koperasi</field>
+            <field name="code">koperasi.pinjaman</field>
+            <field name="prefix">PJM-%(year)s-</field>
+            <field name="padding">5</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+        <record id="seq_koperasi_mitra" model="ir.sequence">
+            <field name="name">Kode Mitra Koperasi</field>
+            <field name="code">koperasi.mitra</field>
+            <field name="prefix">MTR-</field>
+            <field name="padding">3</field>
+            <field name="company_id" eval="False"/>
+        </record>
+    </data>
+</odoo>

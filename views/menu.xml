@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <menuitem
+            id="menu_koperasi_root"
+            name="Koperasi"
+            web_icon="koperasi,static/description/icon.png"
+            groups="koperasi.group_koperasi_mitra"
+            sequence="2"/>
+
+        <menuitem
+            id="menu_koperasi_dashboard"
+            name="Dashboard"
+            parent="menu_koperasi_root"
+            action="action_koperasi_dashboard"
+            sequence="5"/>
+
+        <menuitem
+            id="menu_koperasi_mitra"
+            name="Mitra"
+            parent="menu_koperasi_root"
+            action="action_koperasi_mitra"
+            sequence="10"/>
+
+        <menuitem
+            id="menu_koperasi_anggota"
+            name="Anggota"
+            parent="menu_koperasi_root"
+            action="action_koperasi_anggota"
+            sequence="20"/>
+
+        <menuitem
+            id="menu_koperasi_pinjaman"
+            name="Pinjaman"
+            parent="menu_koperasi_root"
+            action="action_koperasi_pinjaman"
+            sequence="25"/>
+
+        <!-- id lama dipertahankan; menu ini dulu bernama "Simpanan" -->
+        <menuitem
+            id="menu_koperasi_simpanan"
+            name="Tagihan"
+            parent="menu_koperasi_root"
+            sequence="30"/>
+
+        <menuitem
+            id="menu_koperasi_tagihan"
+            name="Tagihan"
+            parent="menu_koperasi_simpanan"
+            action="action_koperasi_tagihan"
+            sequence="10"/>
+
+        <menuitem
+            id="menu_koperasi_buat_tagihan"
+            name="Buat Tagihan"
+            parent="menu_koperasi_simpanan"
+            action="action_koperasi_buat_tagihan_wizard"
+            groups="koperasi.group_koperasi_operator"
+            sequence="20"/>
+
+        <menuitem
+            id="menu_koperasi_laporan"
+            name="Laporan"
+            parent="menu_koperasi_root"
+            action="action_koperasi_laporan"
+            sequence="40"/>
+
+        <menuitem
+            id="menu_koperasi_pengaturan"
+            name="Pengaturan"
+            parent="menu_koperasi_root"
+            groups="koperasi.group_koperasi_operator"
+            sequence="90"/>
+
+        <menuitem
+            id="menu_koperasi_pengaturan_simpanan"
+            name="Pengaturan Simpanan"
+            parent="menu_koperasi_pengaturan"
+            action="action_koperasi_pengaturan"
+            sequence="10"/>
+
+        <menuitem
+            id="menu_koperasi_pinjaman_produk"
+            name="Produk Pinjaman"
+            parent="menu_koperasi_pengaturan"
+            action="action_koperasi_pinjaman_produk"
+            sequence="15"/>
+
+        <menuitem
+            id="menu_koperasi_periode"
+            name="Periode"
+            parent="menu_koperasi_pengaturan"
+            action="action_koperasi_periode"
+            sequence="20"/>
+    </data>
+</odoo>

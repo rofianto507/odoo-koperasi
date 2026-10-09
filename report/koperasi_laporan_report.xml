@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="paperformat_koperasi_laporan" model="report.paperformat">
+            <field name="name">Laporan Koperasi (A4 Lanskap)</field>
+            <field name="default" eval="False"/>
+            <field name="format">A4</field>
+            <field name="orientation">Landscape</field>
+            <field name="margin_top">22</field>
+            <field name="margin_bottom">14</field>
+            <field name="margin_left">10</field>
+            <field name="margin_right">10</field>
+            <field name="header_line" eval="False"/>
+            <field name="header_spacing">18</field>
+            <field name="dpi">90</field>
+        </record>
+
+        <!-- Tanpa binding: dipanggil lewat rute /koperasi/laporan/pdf -->
+        <record id="action_report_koperasi_laporan" model="ir.actions.report">
+            <field name="name">Laporan Koperasi</field>
+            <field name="model">koperasi.laporan</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">koperasi.laporan_pdf</field>
+            <field name="report_file">koperasi.laporan_pdf</field>
+            <field name="paperformat_id" ref="paperformat_koperasi_laporan"/>
+        </record>
+
+        <template id="laporan_pdf">
+            <t t-call="web.html_container">
+                <t t-call="web.internal_layout">
+                    <div class="page kopl">
+                        <style>
+                            .kopl { font-size: 11px; color: #1f2937; }
+                            .kopl .kop-head { display: table; width: 100%; margin-bottom: 10px; border-bottom: 3px solid #71639e; padding-bottom: 8px; }
+                            .kopl .kop-head .logo { display: table-cell; width: 70px; vertical-align: middle; }
+                            .kopl .kop-head .logo img { width: 62px; height: 62px; }
+                            .kopl .kop-head .teks { display: table-cell; vertical-align: middle; padding-left: 10px; }
+                            .kopl h1 { font-size: 20px; margin: 0; color: #4c1d95; }
+                            .kopl .sub { color: #6b7280; margin-top: 2px; }
+                            .kopl .meta { display: table; margin: 6px 0 12px; }
+                            .kopl .meta span { display: table-cell; padding-right: 26px; }
+                            .kopl .meta b { color: #4b5563; font-weight: 600; }
+                            .kopl .kartu { width: 100%; border-collapse: separate; border-spacing: 6px 0; margin: 0 -6px 12px; }
+                            .kopl .kartu td { background: #f5f3ff; border-left: 4px solid #7c3aed; padding: 7px 10px; width: 16.6%; }
+                            .kopl .kartu .v { font-size: 15px; font-weight: 700; color: #1f2937; }
+                            .kopl .kartu .l { font-size: 9.5px; text-transform: uppercase; color: #6b7280; letter-spacing: .3px; }
+                            .kopl .kartu .s { font-size: 9px; color: #9ca3af; }
+                            .kopl h2 { font-size: 13px; margin: 14px 0 5px; color: #4c1d95; }
+                            .kopl table.data { width: 100%; border-collapse: collapse; margin-bottom: 4px; page-break-inside: auto; }
+                            .kopl table.data thead { display: table-header-group; }
+                            .kopl table.data tr { page-break-inside: avoid; }
+                            .kopl table.data th { background: #2e7d5b; color: #fff; padding: 5px 7px; font-size: 10px; border: 1px solid #2e7d5b; text-align: left; }
+                            .kopl table.data td { padding: 4px 7px; border: 1px solid #d1d5db; }
+                            .kopl table.data.dua th:first-child, .kopl table.data.dua td:first-child { width: 68%; }
+                            .kopl table.data tr:nth-child(even) td { background: #fafafa; }
+                            .kopl .num { text-align: right; white-space: nowrap; }
+                            .kopl .tgh { text-align: center; }
+                            .kopl .kode { font-family: monospace; color: #4c1d95; }
+                            .kopl tr.judul td { background: #f3f4f6 !important; font-weight: 700; }
+                            .kopl tr.total td { background: #e8f3ec !important; font-weight: 700; }
+                            .kopl tr.jumlah td { background: #e8f3ec !important; font-weight: 700; border-top: 2px solid #2e7d5b; }
+                            .kopl .kosong { text-align: center; color: #9ca3af; font-style: italic; padding: 10px; }
+                            .kopl .lencana { display: inline-block; padding: 1px 7px; border-radius: 9px; font-size: 9.5px; font-weight: 600; }
+                            .kopl .catatan { color: #6b7280; font-style: italic; font-size: 9.5px; margin: 2px 0 6px; }
+                            .kopl .penutup { margin-top: 14px; border-top: 1px solid #e5e7eb; padding-top: 6px; color: #6b7280; font-size: 9.5px; }
+                            .kopl .ttd { display: table; width: 100%; margin-top: 26px; page-break-inside: avoid; }
+                            .kopl .ttd div { display: table-cell; width: 33%; text-align: center; }
+                            .kopl .ttd .garis { margin-top: 48px; border-top: 1px solid #1f2937; width: 70%; display: inline-block; padding-top: 3px; }
+                        </style>
+
+                        <div class="kop-head">
+                            <div class="logo"><img t-attf-src="data:image/png;base64,#{logo}" alt="Koperasi"/></div>
+                            <div class="teks">
+                                <h1 t-out="laporan['judul']"/>
+                                <div class="sub" t-out="laporan['subjudul']"/>
+                            </div>
+                        </div>
+                        <div class="meta">
+                            <t t-foreach="laporan.get('identitas') or []" t-as="idt">
+                                <span><b t-out="idt[0]"/>: <t t-out="idt[1]"/></span>
+                            </t>
+                        </div>
+                        <div class="meta">
+                            <span><b>Mitra:</b> <t t-out="laporan['mitra_label']"/></span>
+                            <span><b>Periode:</b> <t t-out="laporan['periode_label']"/></span>
+                            <span><b>Dibuat:</b> <t t-out="laporan['dibuat']"/> oleh <t t-out="laporan['oleh']"/></span>
+                        </div>
+
+                        <table t-if="laporan['ringkasan']" class="kartu">
+                            <tr>
+                                <t t-foreach="laporan['ringkasan']" t-as="k">
+                                    <td>
+                                        <div class="l" t-out="k['label']"/>
+                                        <div class="v"><t t-out="fmt(k['nilai'], k['tipe']) or k['sub']"/></div>
+                                        <div class="s" t-if="k['nilai'] is not None" t-out="k['sub']"/>
+                                    </td>
+                                </t>
+                            </tr>
+                        </table>
+
+                        <t t-foreach="laporan['bagian']" t-as="b">
+                            <h2 t-out="b['judul']"/>
+                            <table t-attf-class="data #{'dua' if len(b['kolom']) == 2 else ''}">
+                                <thead>
+                                    <tr>
+                                        <t t-foreach="b['kolom']" t-as="kol">
+                                            <th t-att-class="'num' if kol['tipe'] in ('rp', 'angka', 'persen') else ''"
+                                                t-out="kol['label']"/>
+                                        </t>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-if="not b['baris']"><td t-att-colspan="len(b['kolom'])" class="kosong" t-out="b['kosong']"/></tr>
+                                    <t t-foreach="b['baris']" t-as="row">
+                                        <tr t-att-class="row.get('_gaya') or ''">
+                                            <t t-foreach="b['kolom']" t-as="kol">
+                                                <t t-set="nilai" t-value="row.get(kol['key'])"/>
+                                                <td t-if="kol['tipe'] == 'status'" class="tgh">
+                                                    <span t-if="nilai" class="lencana"
+                                                          t-attf-style="background: #{warna_status(nilai)[0]}; color: #{warna_status(nilai)[1]};"
+                                                          t-out="nilai"/>
+                                                </td>
+                                                <td t-elif="kol['tipe'] == 'kode'" class="kode" t-out="nilai or ''"/>
+                                                <td t-elif="kol['tipe'] in ('rp', 'angka', 'persen')" class="num"
+                                                    t-out="fmt(nilai, kol['tipe'])"/>
+                                                <td t-elif="kol['tipe'] == 'tanggal'" class="tgh" t-out="fmt(nilai, 'tanggal')"/>
+                                                <td t-else="" t-out="nilai if nilai is not None else ''"/>
+                                            </t>
+                                        </tr>
+                                    </t>
+                                    <tr t-if="b['total'] and b['baris']" class="jumlah">
+                                        <t t-foreach="b['kolom']" t-as="kol">
+                                            <td t-att-class="'num' if kol['tipe'] in ('rp', 'angka', 'persen') else ''">
+                                                <t t-if="kol['jumlah'] or kol_index == 0"
+                                                   t-out="fmt(b['total'].get(kol['key']), kol['tipe']) if kol['jumlah'] else b['total'].get(kol['key'])"/>
+                                            </td>
+                                        </t>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <div class="catatan" t-if="b.get('catatan')" t-out="b['catatan']"/>
+                        </t>
+
+                        <div class="penutup">
+                            <div t-foreach="laporan['catatan']" t-as="c">• <t t-out="c"/></div>
+                        </div>
+                        <div class="ttd">
+                            <div>Dibuat oleh,<br/><span class="garis" t-out="laporan['oleh']"/></div>
+                            <div>Mengetahui,<br/><span class="garis">&#160;</span></div>
+                            <div>Disetujui,<br/><span class="garis">&#160;</span></div>
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </template>
+
+    </data>
+</odoo>

@@ -1,0 +1,22 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_koperasi_mitra_mitra,koperasi.mitra admin mitra,model_koperasi_mitra,koperasi.group_koperasi_mitra,1,0,0,0
+access_koperasi_mitra_operator,koperasi.mitra operator,model_koperasi_mitra,koperasi.group_koperasi_operator,1,1,1,1
+access_koperasi_anggota_mitra,koperasi.anggota admin mitra,model_koperasi_anggota,koperasi.group_koperasi_mitra,1,1,1,1
+access_koperasi_anggota_operator,koperasi.anggota operator,model_koperasi_anggota,koperasi.group_koperasi_operator,1,1,1,1
+access_koperasi_anggota_gaji_mitra,koperasi.anggota.gaji admin mitra,model_koperasi_anggota_gaji,koperasi.group_koperasi_mitra,1,0,0,0
+access_koperasi_simsula_mitra,koperasi.simsula admin mitra,model_koperasi_simsula,koperasi.group_koperasi_mitra,1,0,0,0
+access_koperasi_pengaturan_mitra,koperasi.pengaturan admin mitra,model_koperasi_pengaturan,koperasi.group_koperasi_mitra,1,0,0,0
+access_koperasi_pengaturan_operator,koperasi.pengaturan operator,model_koperasi_pengaturan,koperasi.group_koperasi_operator,1,1,0,0
+access_koperasi_periode_mitra,koperasi.periode admin mitra,model_koperasi_periode,koperasi.group_koperasi_mitra,1,0,0,0
+access_koperasi_periode_operator,koperasi.periode operator,model_koperasi_periode,koperasi.group_koperasi_operator,1,1,1,1
+access_koperasi_tagihan_mitra,koperasi.tagihan admin mitra,model_koperasi_tagihan,koperasi.group_koperasi_mitra,1,0,0,0
+access_koperasi_tagihan_operator,koperasi.tagihan operator,model_koperasi_tagihan,koperasi.group_koperasi_operator,1,1,1,1
+access_koperasi_tagihan_line_mitra,koperasi.tagihan.line admin mitra,model_koperasi_tagihan_line,koperasi.group_koperasi_mitra,1,0,0,0
+access_koperasi_tagihan_line_operator,koperasi.tagihan.line operator,model_koperasi_tagihan_line,koperasi.group_koperasi_operator,1,1,1,1
+access_koperasi_pinjaman_produk_mitra,koperasi.pinjaman.produk admin mitra,model_koperasi_pinjaman_produk,koperasi.group_koperasi_mitra,1,0,0,0
+access_koperasi_pinjaman_produk_operator,koperasi.pinjaman.produk operator,model_koperasi_pinjaman_produk,koperasi.group_koperasi_operator,1,1,1,1
+access_koperasi_pinjaman_mitra,koperasi.pinjaman admin mitra,model_koperasi_pinjaman,koperasi.group_koperasi_mitra,1,1,1,1
+access_koperasi_pinjaman_operator,koperasi.pinjaman operator,model_koperasi_pinjaman,koperasi.group_koperasi_operator,1,1,1,1
+access_koperasi_pinjaman_angsuran_mitra,koperasi.pinjaman.angsuran admin mitra,model_koperasi_pinjaman_angsuran,koperasi.group_koperasi_mitra,1,0,0,0
+access_koperasi_buat_tagihan_wizard,koperasi.buat.tagihan.wizard,model_koperasi_buat_tagihan_wizard,koperasi.group_koperasi_operator,1,1,1,1
+access_koperasi_tolak_wizard,koperasi.tolak.wizard,model_koperasi_tolak_wizard,koperasi.group_koperasi_operator,1,1,1,1

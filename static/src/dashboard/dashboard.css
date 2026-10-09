@@ -1,0 +1,437 @@
+/* ── Dashboard Koperasi (pola tata letak mengikuti dashboard digital_kamtibmas) ── */
+
+.kop-dashboard {
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+    overflow: hidden;
+    background: #f0f2f5;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+.kop-sidebar {
+    width: 210px;
+    min-width: 210px;
+    background: #fff;
+    border-right: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+    transition: width 0.22s ease, min-width 0.22s ease;
+}
+.kop-sidebar.collapsed { width: 52px; min-width: 52px; }
+
+.kop-sidebar-brand {
+    padding: 18px 14px 14px;
+    border-bottom: 1px solid #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+    transition: padding 0.22s ease;
+}
+.kop-sidebar.collapsed .kop-sidebar-brand { padding: 0; border-bottom: none; }
+.kop-sidebar-logo {
+    width: 112px;
+    height: 112px;
+    object-fit: contain;
+    transition: width 0.22s ease, height 0.22s ease, opacity 0.15s ease;
+}
+.kop-sidebar.collapsed .kop-sidebar-logo { width: 0; height: 0; opacity: 0; }
+
+.kop-sidebar-section { padding: 10px 0 6px; }
+.kop-sidebar-section-title {
+    padding: 0 18px 4px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    white-space: nowrap;
+    overflow: hidden;
+    max-height: 24px;
+    transition: max-height 0.22s ease, opacity 0.15s ease, padding 0.22s ease;
+}
+.kop-sidebar.collapsed .kop-sidebar-section-title { max-height: 0; opacity: 0; padding: 0; }
+
+.kop-sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 15px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #374151;
+    border-left: 3px solid transparent;
+    user-select: none;
+    overflow: hidden;
+    transition: background 0.1s, padding 0.22s ease, gap 0.22s ease;
+}
+.kop-sidebar.collapsed .kop-sidebar-item { padding: 10px 0; gap: 0; justify-content: center; border-left: none; }
+.kop-sidebar-item:hover { background: #f9fafb; }
+.kop-sidebar-item.active {
+    background: #ede9f6;
+    color: #71639e;
+    border-left-color: #71639e;
+    font-weight: 600;
+}
+.kop-sidebar-item i { width: 16px; text-align: center; font-size: 14px; flex-shrink: 0; }
+.kop-sidebar-item > span {
+    overflow: hidden;
+    white-space: nowrap;
+    max-width: 160px;
+    transition: max-width 0.22s ease, opacity 0.15s ease;
+}
+.kop-sidebar.collapsed .kop-sidebar-item > span { max-width: 0; opacity: 0; }
+
+.kop-sidebar-footer {
+    margin-top: auto;
+    padding: 8px 10px;
+    border-top: 1px solid #f3f4f6;
+    display: flex;
+    justify-content: flex-end;
+}
+.kop-sidebar.collapsed .kop-sidebar-footer { justify-content: center; padding: 8px 0; }
+.kop-sidebar-toggle {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #9ca3af;
+    font-size: 12px;
+    transition: background 0.1s, color 0.1s;
+}
+.kop-sidebar-toggle:hover { background: #f3f4f6; color: #71639e; }
+
+/* ── Konten ──────────────────────────────────────────────────────────────── */
+.kop-main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    min-width: 0;
+}
+
+.kop-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    background: #fff;
+    border-radius: 10px;
+    padding: 14px 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+}
+.kop-header-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.kop-header-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.kop-header-icon { color: #71639e; font-size: 20px; }
+.kop-header h1 { font-size: 17px; font-weight: 700; color: #1f2937; margin: 0; white-space: nowrap; }
+.kop-header-sub {
+    font-size: 12px;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 3px 10px;
+    border-radius: 99px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.kop-filter-label { font-size: 13px; color: #6b7280; white-space: nowrap; }
+.kop-dashboard .kop-select {
+    min-width: 180px;
+    max-width: 280px;
+    padding: 6px 30px 6px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background-color: #fff;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 12px;
+    color: #374151;
+    font-size: 13px;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    outline: none;
+}
+.kop-dashboard .kop-select:focus { border-color: #71639e; }
+.kop-dashboard .kop-select--periode { min-width: 150px; }
+
+.kop-section-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.kop-section-label i { color: #71639e; }
+
+/* ── Kartu utama (gradasi) ───────────────────────────────────────────────── */
+.kop-card-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+}
+.kop-card {
+    position: relative;
+    border-radius: 0.5rem;
+    padding: 14px 16px;
+    color: #fff;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 132px;
+}
+.kop-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); }
+.kop-card--ungu   { background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%); }
+.kop-card--biru   { background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); }
+.kop-card--hijau  { background: linear-gradient(135deg, #10b981 0%, #065f46 100%); }
+.kop-card--jingga { background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%); }
+.kop-card--merah  { background: linear-gradient(135deg, #ef4444 0%, #991b1b 100%); }
+.kop-card--abu    { background: linear-gradient(135deg, #64748b 0%, #334155 100%); }
+.kop-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.12) 0%, transparent 55%);
+    pointer-events: none;
+}
+.kop-card-bg-icon {
+    position: absolute;
+    right: -6px;
+    bottom: -6px;
+    font-size: 80px;
+    opacity: 0.1;
+    pointer-events: none;
+    line-height: 1;
+    transform: rotate(-10deg);
+}
+.kop-card-chip {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.18);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.kop-card-value {
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -1px;
+    margin-top: 8px;
+    white-space: nowrap;
+}
+.kop-card-label { font-size: 13px; font-weight: 600; opacity: 0.95; }
+.kop-card-sub { font-size: 11px; opacity: 0.8; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kop-card-bar { height: 4px; background: rgba(255, 255, 255, 0.2); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+.kop-card-bar-fill { height: 100%; background: rgba(255, 255, 255, 0.75); border-radius: 2px; transition: width 0.6s ease; }
+
+/* ── Kartu antrean ───────────────────────────────────────────────────────── */
+.kop-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+}
+.kop-kpi-card {
+    background: #fff;
+    border-radius: 0.5rem;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+    cursor: pointer;
+    min-width: 0;
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+.kop-kpi-card:hover { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1); transform: translateY(-2px); }
+.kop-kpi-card--nol .kop-kpi-value { color: #9ca3af; }
+.kop-kpi-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 19px;
+    flex-shrink: 0;
+}
+.kop-kpi-icon--ungu   { background: #f0eff5; color: #71639e; }
+.kop-kpi-icon--biru   { background: #dbeafe; color: #2563eb; }
+.kop-kpi-icon--jingga { background: #fef3c7; color: #d97706; }
+.kop-kpi-icon--hijau  { background: #d1fae5; color: #059669; }
+.kop-kpi-body { flex: 1; min-width: 0; }
+.kop-kpi-value { font-size: 24px; font-weight: 700; color: #1f2937; line-height: 1.2; }
+.kop-kpi-label { font-size: 12px; color: #374151; font-weight: 600; }
+.kop-kpi-sub { font-size: 11px; color: #9ca3af; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Grafik ──────────────────────────────────────────────────────────────── */
+.kop-charts-row {
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+.kop-chart-card {
+    background: #fff;
+    border-radius: 0.5rem;
+    padding: 20px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+    min-width: 0;
+    overflow: hidden;
+}
+.kop-chart-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    color: #1f2937;
+    font-weight: 600;
+}
+.kop-chart-sub { font-size: 11px; color: #9ca3af; font-weight: 400; }
+.kop-echarts { width: 100%; height: 280px; }
+
+/* ── Panel & tabel ───────────────────────────────────────────────────────── */
+.kop-bottom-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 8px;
+}
+.kop-panel {
+    background: #fff;
+    border-radius: 0.5rem;
+    padding: 20px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+    min-width: 0;
+}
+.kop-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 10px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f3f4f6;
+}
+.kop-panel-header i { color: #71639e; margin-right: 4px; }
+.kop-count-badge { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+.kop-count-badge--biru   { background: #dbeafe; color: #1d4ed8; }
+.kop-count-badge--jingga { background: #fef3c7; color: #92400e; }
+.kop-count-badge--merah  { background: #fee2e2; color: #991b1b; }
+
+.kop-table-wrap { overflow-x: auto; }
+.kop-table { width: 100%; border-collapse: collapse; }
+.kop-table thead tr { border-bottom: 2px solid #f3f4f6; }
+.kop-table th {
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+.kop-table td {
+    padding: 10px;
+    color: #374151;
+    border-bottom: 1px solid #f9fafb;
+    vertical-align: middle;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 190px;
+}
+.kop-table tbody tr:last-child td { border-bottom: none; }
+.kop-table .kop-num { text-align: right; font-variant-numeric: tabular-nums; }
+.kop-tebal { font-weight: 700; color: #1f2937 !important; }
+.kop-merah { color: #dc2626 !important; font-weight: 600; }
+.kop-tr { cursor: pointer; transition: background 0.1s; }
+.kop-tr:hover { background: #fafafa; }
+.kop-code { font-family: monospace; color: #71639e !important; font-weight: 600; font-size: 11.5px; }
+
+.kop-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 99px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+}
+.kop-badge--abu    { background: #f3f4f6; color: #4b5563; }
+.kop-badge--biru   { background: #dbeafe; color: #1d4ed8; }
+.kop-badge--jingga { background: #fef3c7; color: #92400e; }
+.kop-badge--hijau  { background: #d1fae5; color: #065f46; }
+.kop-badge--merah  { background: #fee2e2; color: #991b1b; }
+
+.kop-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+    color: #9ca3af;
+    font-size: 13px;
+    gap: 8px;
+    text-align: center;
+}
+.kop-empty-icon { font-size: 28px; color: #d1d5db; }
+.kop-icon--hijau { color: #10b981 !important; }
+
+.kop-loading, .kop-error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px;
+    background: #fff;
+    border-radius: 0.5rem;
+    gap: 12px;
+    color: #71639e;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+    margin-bottom: 20px;
+}
+.kop-error { color: #991b1b; background: #fee2e2; padding: 16px 20px; justify-content: flex-start; }
+
+/* ── Layar sempit ────────────────────────────────────────────────────────── */
+@media (max-width: 1200px) {
+    .kop-card-row, .kop-kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .kop-charts-row, .kop-bottom-row { grid-template-columns: 1fr; }
+    .kop-card-value { font-size: 26px; }
+}
+@media (max-width: 640px) {
+    .kop-card-row, .kop-kpi-row { grid-template-columns: 1fr; }
+    .kop-main { padding: 12px; }
+    .kop-sidebar { width: 52px; min-width: 52px; }
+    .kop-sidebar .kop-sidebar-item > span, .kop-sidebar .kop-sidebar-section-title { max-width: 0; opacity: 0; max-height: 0; padding: 0; }
+    .kop-sidebar .kop-sidebar-logo { width: 0; height: 0; opacity: 0; }
+    .kop-sidebar .kop-sidebar-brand { padding: 0; border-bottom: none; }
+    .kop-sidebar .kop-sidebar-item { padding: 10px 0; gap: 0; justify-content: center; border-left: none; }
+}

@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_koperasi_anggota_list" model="ir.ui.view">
+            <field name="name">koperasi.anggota.list</field>
+            <field name="model">koperasi.anggota</field>
+            <field name="arch" type="xml">
+                <list string="Anggota"
+                      decoration-muted="state == 'draft'"
+                      decoration-warning="state == 'menunggu'"
+                      decoration-success="state == 'aktif'"
+                      decoration-danger="state == 'ditolak'">
+                    <field name="avatar_128" widget="image"
+                           options="{'size': [24, 24], 'img_class': 'o_avatar rounded'}"
+                           width="30" nolabel="1"/>
+                    <field name="nomor_anggota"/>
+                    <field name="name"/>
+                    <field name="mitra_id"/>
+                    <field name="nip"/>
+                    <field name="jabatan"/>
+                    <field name="status_pegawai" optional="show"/>
+                    <field name="telepon" optional="hide"/>
+                    <field name="currency_id" column_invisible="1"/>
+                    <field name="saldo_total" optional="show"/>
+                    <field name="tunggakan_total" optional="hide"/>
+                    <field name="state"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_koperasi_anggota_form" model="ir.ui.view">
+            <field name="name">koperasi.anggota.form</field>
+            <field name="model">koperasi.anggota</field>
+            <field name="arch" type="xml">
+                <form string="Anggota Koperasi">
+                    <header>
+                        <button name="action_ajukan" type="object" string="Ajukan Validasi"
+                                class="btn-primary"
+                                invisible="state not in ('draft', 'ditolak')"/>
+                        <button name="action_setujui" type="object" string="Setujui"
+                                class="btn-primary" invisible="state != 'menunggu'"
+                                groups="koperasi.group_koperasi_operator"/>
+                        <button name="action_buka_tolak_wizard" type="object" string="Tolak"
+                                invisible="state != 'menunggu'"
+                                groups="koperasi.group_koperasi_operator"/>
+                        <button name="action_kembali_draft" type="object" string="Kembalikan ke Draft"
+                                invisible="state not in ('aktif', 'ditolak')"
+                                groups="koperasi.group_koperasi_operator"/>
+                        <button name="action_buku_simpanan" type="object" string="Buku Simpanan"
+                                icon="fa-file-pdf-o" invisible="state != 'aktif'"/>
+                        <field name="state" widget="statusbar"
+                               statusbar_visible="draft,menunggu,aktif"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_button_box" name="button_box" invisible="not id">
+                            <button name="action_lihat_tagihan" type="object"
+                                    class="oe_stat_button" icon="fa-bank">
+                                <field name="saldo_simpok" widget="statinfo" string="Simpanan Pokok"/>
+                            </button>
+                            <button name="action_lihat_tagihan" type="object"
+                                    class="oe_stat_button" icon="fa-calendar-check-o">
+                                <field name="saldo_simwa" widget="statinfo" string="Simpanan Wajib"/>
+                            </button>
+                            <button name="action_lihat_tagihan" type="object"
+                                    class="oe_stat_button" icon="fa-plus-circle">
+                                <field name="saldo_simsula" widget="statinfo" string="Simpanan Sukarela"/>
+                            </button>
+                            <button name="action_lihat_tagihan" type="object"
+                                    class="oe_stat_button" icon="fa-money">
+                                <field name="saldo_total" widget="statinfo" string="Total Simpanan"/>
+                            </button>
+                            <button name="action_lihat_pinjaman" type="object"
+                                    class="oe_stat_button" icon="fa-credit-card">
+                                <field name="pinjaman_sisa" widget="statinfo" string="Sisa Pinjaman"/>
+                            </button>
+                            <button name="action_lihat_pinjaman" type="object"
+                                    class="oe_stat_button" icon="fa-list-ol">
+                                <field name="angsuran_sisa" widget="statinfo" string="Sisa Angsuran"/>
+                            </button>
+                            <button name="action_lihat_tagihan" type="object"
+                                    class="oe_stat_button text-danger" icon="fa-exclamation-triangle"
+                                    invisible="tunggakan_total == 0">
+                                <field name="tunggakan_total" widget="statinfo" string="Tunggakan"/>
+                            </button>
+                        </div>
+                        <widget name="web_ribbon" title="Diarsipkan" bg_color="text-bg-danger"
+                                invisible="active"/>
+                        <field name="active" invisible="1"/>
+                        <field name="currency_id" invisible="1"/>
+                        <div class="alert alert-danger" role="alert" invisible="state != 'ditolak'">
+                            <strong>Alasan penolakan: </strong>
+                            <field name="alasan_tolak" readonly="1" nolabel="1" class="d-inline"/>
+                        </div>
+                        <div class="mb8">
+                            <div class="d-flex gap-3 align-items-center">
+                                <div class="d-flex flex-column flex-grow-1">
+                                    <h1 class="mb-1 w-md-75">
+                                        <field name="name" widget="text" options="{'line_breaks': False}"
+                                               class="text-break d-block" default_focus="1"
+                                               placeholder="Nama Lengkap"/>
+                                    </h1>
+                                    <div class="d-flex align-items-baseline text-muted">
+                                        <i class="fa fa-fw me-1 fa-id-card-o text-primary" title="Nomor Anggota"/>
+                                        <field name="nomor_anggota" class="fs-4 fw-bold text-body"/>
+                                        <span invisible="nomor_anggota">
+                                            Nomor anggota diberikan saat divalidasi
+                                        </span>
+                                    </div>
+                                </div>
+                                <field name="image_1920" widget="contact_image"
+                                       options="{'preview_image': 'avatar_128', 'size': [110,110], 'img_class': 'rounded border'}"/>
+                                <field name="avatar_128" invisible="1"/> <!-- dibutuhkan widget contact_image -->
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-lg-6">
+                            <group col="1">
+                            <group string="Data Pribadi" name="pribadi">
+                                <field name="nik"/>
+                                <label for="tempat_lahir" string="Tempat, Tanggal Lahir"/>
+                                <div class="d-flex gap-2">
+                                    <field name="tempat_lahir" placeholder="Tempat lahir"/>
+                                    <field name="tanggal_lahir" placeholder="Tanggal lahir"/>
+                                </div>
+                                <field name="jenis_kelamin" widget="radio" options="{'horizontal': true}"/>
+                                <label for="street" string="Alamat"/>
+                                <div class="o_address_format">
+                                    <field name="street" placeholder="Jalan..." class="o_address_street"/>
+                                    <field name="street2" placeholder="Jalan 2..." class="o_address_street"/>
+                                    <field name="city" placeholder="Kota" class="o_address_city"/>
+                                    <field name="state_id" placeholder="Provinsi" class="o_address_state"
+                                           options="{'no_open': True, 'no_quick_create': True}"
+                                           context="{'country_id': country_id, 'default_country_id': country_id, 'zip': zip}"/>
+                                    <field name="zip" placeholder="Kode Pos" class="o_address_zip"/>
+                                    <div name="partner_address_country" class="d-flex justify-content-between">
+                                        <field name="country_id" placeholder="Negara" class="o_address_country"
+                                               options="{'no_open': True, 'no_create': True}"/>
+                                    </div>
+                                </div>
+                                <field name="telepon" widget="phone"/>
+                                <field name="email" widget="email"/>
+                            </group>
+                            <group string="Simpanan" name="simpanan_bulanan">
+                                <field name="simpok_berlaku" string="Pokok"/>
+                                <field name="simwa_berlaku" string="Wajib / Bulan"/>
+                                <field name="simsula" string="Sukarela / Bulan"/>
+                                <div colspan="2" class="text-muted small">
+                                    <i class="fa fa-info-circle me-1" title="Info"/>
+                                    Simpanan pokok dan wajib mengikuti Pengaturan Simpanan.
+                                    Perubahan simpanan sukarela berlaku mulai tagihan periode berikutnya.
+                                </div>
+                            </group>
+                            </group>
+                            </div>
+                            <div class="col-lg-6">
+                            <group col="1">
+                            <group string="Data Kepegawaian" name="kepegawaian">
+                                <field name="mitra_id"
+                                       readonly="state != 'draft'"
+                                       options="{'no_create': True, 'no_open': True}"/>
+                                <field name="nip"/>
+                                <field name="jabatan"/>
+                                <field name="status_pegawai"/>
+                                <field name="tanggal_masuk_kerja"/>
+                                <field name="tanggal_bergabung"/>
+                            </group>
+                            <group string="Data Gaji" name="gaji">
+                                <field name="gaji_bersih"/>
+                                <field name="gaji_berlaku_mulai" required="gaji_bersih"/>
+                                <field name="plafon_info" nolabel="1" colspan="2" readonly="1"/>
+                            </group>
+                            <group string="Rekening Pencairan" name="rekening">
+                                <field name="bank_tujuan"/>
+                                <field name="bank_lainnya" invisible="bank_tujuan != 'lainnya'"
+                                       required="bank_tujuan == 'lainnya'"
+                                       placeholder="Ketik nama bank"/>
+                                <field name="nomor_rekening" placeholder="Hanya angka"
+                                       required="bank_tujuan"/>
+                                <field name="atas_nama" placeholder="Sesuai buku tabungan"
+                                       required="bank_tujuan"/>
+                            </group>
+                            </group>
+                            </div>
+                        </div>
+                        <notebook>
+                            <page string="Riwayat Tagihan" name="simpanan">
+                                <field name="tagihan_line_ids">
+                                    <list>
+                                        <field name="currency_id" column_invisible="1"/>
+                                        <field name="periode_id"/>
+                                        <field name="tagihan_id"/>
+                                        <field name="simpok"/>
+                                        <field name="simwa"/>
+                                        <field name="simsula"/>
+                                        <field name="angsuran_pokok" optional="show"/>
+                                        <field name="angsuran_jasa" optional="show"/>
+                                        <field name="tunggakan" optional="show"/>
+                                        <field name="total"/>
+                                        <field name="status" widget="badge"
+                                               decoration-muted="status == 'menunggu'"
+                                               decoration-success="status == 'dibayar'"
+                                               decoration-danger="status == 'belum'"/>
+                                    </list>
+                                </field>
+                            </page>
+                            <page string="Pinjaman" name="pinjaman">
+                                <field name="pinjaman_ids">
+                                    <list>
+                                        <field name="currency_id" column_invisible="1"/>
+                                        <field name="name"/>
+                                        <field name="produk_id"/>
+                                        <field name="pokok"/>
+                                        <field name="tenor"/>
+                                        <field name="angsuran_bulan"/>
+                                        <field name="sisa_pokok"/>
+                                        <field name="tanggal_cair"/>
+                                        <field name="state" widget="badge"
+                                               decoration-muted="state == 'draft'"
+                                               decoration-warning="state in ('diajukan', 'disetujui')"
+                                               decoration-info="state == 'berjalan'"
+                                               decoration-success="state == 'lunas'"
+                                               decoration-danger="state == 'ditolak'"/>
+                                    </list>
+                                </field>
+                            </page>
+                            <page string="Riwayat Gaji" name="riwayat_gaji">
+                                <field name="gaji_ids">
+                                    <list>
+                                        <field name="currency_id" column_invisible="1"/>
+                                        <field name="tanggal_berlaku"/>
+                                        <field name="gaji_bersih"/>
+                                        <field name="perubahan"
+                                               decoration-success="perubahan &gt; 0"
+                                               decoration-danger="perubahan &lt; 0"/>
+                                    </list>
+                                </field>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <!-- Form anggota versi dialog, dipakai tab Anggota di form mitra.
+             Mitra diisi otomatis dari form induk; alur validasi tetap lewat menu Anggota. -->
+        <record id="view_koperasi_anggota_form_mitra" model="ir.ui.view">
+            <field name="name">koperasi.anggota.form.mitra</field>
+            <field name="model">koperasi.anggota</field>
+            <field name="inherit_id" ref="view_koperasi_anggota_form"/>
+            <field name="mode">primary</field>
+            <field name="priority">20</field>
+            <field name="arch" type="xml">
+                <xpath expr="//header" position="replace">
+                    <field name="state" invisible="1"/>
+                </xpath>
+                <xpath expr="//field[@name='mitra_id']" position="replace"/>
+                <xpath expr="//div[@name='button_box']" position="replace"/>
+                <xpath expr="//chatter" position="replace"/>
+            </field>
+        </record>
+
+        <record id="view_koperasi_anggota_search" model="ir.ui.view">
+            <field name="name">koperasi.anggota.search</field>
+            <field name="model">koperasi.anggota</field>
+            <field name="arch" type="xml">
+                <search string="Cari Anggota">
+                    <field name="name"/>
+                    <field name="nomor_anggota"/>
+                    <field name="nip"/>
+                    <field name="nik"/>
+                    <field name="mitra_id"/>
+                    <filter name="f_draft" string="Draft" domain="[('state', '=', 'draft')]"/>
+                    <filter name="f_menunggu" string="Menunggu Validasi" domain="[('state', '=', 'menunggu')]"/>
+                    <filter name="f_aktif" string="Aktif" domain="[('state', '=', 'aktif')]"/>
+                    <filter name="f_ditolak" string="Ditolak" domain="[('state', '=', 'ditolak')]"/>
+                    <filter name="arsip" string="Diarsipkan" domain="[('active', '=', False)]"/>
+                    <group>
+                        <filter name="g_mitra" string="Mitra" context="{'group_by': 'mitra_id'}"/>
+                        <filter name="g_state" string="Status" context="{'group_by': 'state'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_koperasi_anggota" model="ir.actions.act_window">
+            <field name="name">Anggota</field>
+            <field name="res_model">koperasi.anggota</field>
+            <field name="view_mode">list,form</field>
+            <field name="search_view_id" ref="view_koperasi_anggota_search"/>
+        </record>
+
+    </data>
+</odoo>

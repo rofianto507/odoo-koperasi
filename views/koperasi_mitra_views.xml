@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_koperasi_mitra_list" model="ir.ui.view">
+            <field name="name">koperasi.mitra.list</field>
+            <field name="model">koperasi.mitra</field>
+            <field name="arch" type="xml">
+                <list string="Mitra">
+                    <field name="avatar_128" widget="image"
+                           options="{'size': [24, 24], 'img_class': 'o_avatar rounded'}"
+                           width="30" nolabel="1"/>
+                    <field name="kode"/>
+                    <field name="name"/>
+                    <field name="admin_nama" string="Admin Mitra"/>
+                    <field name="telepon"/>
+                    <field name="email" optional="hide"/>
+                    <field name="tanggal_bergabung"/>
+                    <field name="anggota_count"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_koperasi_mitra_form" model="ir.ui.view">
+            <field name="name">koperasi.mitra.form</field>
+            <field name="model">koperasi.mitra</field>
+            <field name="arch" type="xml">
+                <form string="Mitra">
+                    <sheet>
+                        <div class="oe_button_box" name="button_box">
+                            <button name="action_lihat_anggota" type="object"
+                                    class="oe_stat_button" icon="fa-users">
+                                <field name="anggota_count" widget="statinfo" string="Anggota"/>
+                            </button>
+                            <button name="action_lihat_anggota_menunggu" type="object"
+                                    class="oe_stat_button text-warning" icon="fa-hourglass-half"
+                                    invisible="anggota_menunggu_count == 0">
+                                <field name="anggota_menunggu_count" widget="statinfo"
+                                       string="Menunggu Validasi"/>
+                            </button>
+                            <button name="action_lihat_simpanan" type="object"
+                                    class="oe_stat_button" icon="fa-money">
+                                <field name="saldo_simpanan" widget="statinfo" string="Total Simpanan"/>
+                            </button>
+                            <button name="action_lihat_pinjaman" type="object"
+                                    class="oe_stat_button" icon="fa-credit-card">
+                                <field name="pinjaman_berjalan_count" widget="statinfo"
+                                       string="Pinjaman Berjalan"/>
+                            </button>
+                            <button name="action_lihat_pinjaman" type="object"
+                                    class="oe_stat_button" icon="fa-balance-scale">
+                                <field name="pinjaman_sisa" widget="statinfo" string="Sisa Pinjaman"/>
+                            </button>
+                            <button name="action_lihat_pinjaman_pengajuan" type="object"
+                                    class="oe_stat_button text-warning" icon="fa-file-text-o"
+                                    invisible="pinjaman_pengajuan_count == 0">
+                                <field name="pinjaman_pengajuan_count" widget="statinfo"
+                                       string="Pengajuan Pinjaman"/>
+                            </button>
+                            <button name="action_lihat_tagihan" type="object"
+                                    class="oe_stat_button" icon="fa-file-text">
+                                <field name="tagihan_count" widget="statinfo" string="Tagihan"/>
+                            </button>
+                            <button name="action_lihat_tunggakan" type="object"
+                                    class="oe_stat_button text-danger" icon="fa-exclamation-triangle"
+                                    invisible="tunggakan_total == 0">
+                                <field name="tunggakan_total" widget="statinfo" string="Tunggakan"/>
+                            </button>
+                        </div>
+                        <field name="currency_id" invisible="1"/>
+                        <widget name="web_ribbon" title="Diarsipkan" bg_color="text-bg-danger"
+                                invisible="active"/>
+                        <field name="active" invisible="1"/>
+                        <div class="mb8">
+                            <div class="d-flex gap-3">
+                                <field name="image_1920" widget="contact_image"
+                                       options="{'preview_image': 'avatar_128', 'size': [130,130], 'img_class': 'rounded border'}"/>
+                                <field name="avatar_128" invisible="1"/> <!-- dibutuhkan widget contact_image -->
+                                <div class="d-flex flex-column flex-grow-1">
+                                    <h1 class="mb-0 w-md-75">
+                                        <field name="name" widget="text" options="{'line_breaks': False}"
+                                               class="text-break d-block" default_focus="1"
+                                               placeholder="Nama Mitra"/>
+                                    </h1>
+                                    <div class="d-flex align-items-baseline w-md-50">
+                                        <i class="fa fa-fw me-1 fa-envelope text-primary" title="Email"/>
+                                        <field name="email" class="w-100" widget="email" placeholder="Email"/>
+                                    </div>
+                                    <div class="d-flex align-items-baseline w-md-50">
+                                        <i class="fa fa-fw me-1 fa-phone text-primary" title="Telepon"/>
+                                        <field name="telepon" class="w-100" widget="phone" placeholder="Telepon"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <group>
+                            <group string="Data Perusahaan" name="perusahaan">
+                                <field name="kode" placeholder="(otomatis saat disimpan)"/>
+                                <label for="street" string="Alamat"/>
+                                <div class="o_address_format">
+                                    <field name="street" placeholder="Jalan..." class="o_address_street"/>
+                                    <field name="street2" placeholder="Jalan 2..." class="o_address_street"/>
+                                    <field name="city" placeholder="Kota" class="o_address_city"/>
+                                    <field name="state_id" placeholder="Provinsi" class="o_address_state"
+                                           options="{'no_open': True, 'no_quick_create': True}"
+                                           context="{'country_id': country_id, 'default_country_id': country_id, 'zip': zip}"/>
+                                    <field name="zip" placeholder="Kode Pos" class="o_address_zip"/>
+                                    <div name="partner_address_country" class="d-flex justify-content-between">
+                                        <field name="country_id" placeholder="Negara" class="o_address_country"
+                                               options="{'no_open': True, 'no_create': True}"/>
+                                    </div>
+                                </div>
+                                <field name="npwp"/>
+                                <field name="tanggal_bergabung"/>
+                            </group>
+                            <group string="Admin Mitra" name="admin">
+                                <field name="admin_user_id" invisible="1"/>
+                                <field name="admin_nama" placeholder="Nama lengkap admin"/>
+                                <field name="admin_email" widget="email" placeholder="dipakai untuk login"/>
+                                <field name="admin_telepon" widget="phone"/>
+                                <field name="admin_status" widget="badge"
+                                       decoration-muted="admin_status == 'belum'"
+                                       decoration-warning="admin_status == 'diundang'"
+                                       decoration-success="admin_status == 'aktif'"
+                                       decoration-danger="admin_status == 'nonaktif'"/>
+                                <div colspan="2" groups="koperasi.group_koperasi_operator"
+                                     invisible="admin_status in ('aktif', 'nonaktif')">
+                                    <button name="action_kirim_undangan" type="object"
+                                            class="btn-primary" icon="fa-envelope"
+                                            string="Kirim Undangan"
+                                            invisible="admin_status != 'belum'"/>
+                                    <button name="action_kirim_undangan" type="object"
+                                            class="btn-secondary" icon="fa-envelope"
+                                            string="Kirim Ulang Undangan"
+                                            invisible="admin_status != 'diundang'"/>
+                                </div>
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="Anggota" name="anggota">
+                                <field name="anggota_ids"
+                                       context="{'form_view_ref': 'koperasi.view_koperasi_anggota_form_mitra'}">
+                                    <list delete="0"
+                                          decoration-muted="state == 'draft'"
+                                          decoration-warning="state == 'menunggu'"
+                                          decoration-success="state == 'aktif'"
+                                          decoration-danger="state == 'ditolak'">
+                                        <field name="nomor_anggota"/>
+                                        <field name="name"/>
+                                        <field name="nip"/>
+                                        <field name="jabatan"/>
+                                        <field name="currency_id" column_invisible="1"/>
+                                        <field name="gaji_bersih"/>
+                                        <field name="state"/>
+                                    </list>
+                                </field>
+                            </page>
+                            <page string="Catatan" name="catatan">
+                                <field name="catatan" placeholder="Catatan internal tentang mitra ini..."/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <record id="view_koperasi_mitra_search" model="ir.ui.view">
+            <field name="name">koperasi.mitra.search</field>
+            <field name="model">koperasi.mitra</field>
+            <field name="arch" type="xml">
+                <search string="Cari Mitra">
+                    <field name="name"/>
+                    <field name="kode"/>
+                    <field name="admin_nama" string="Admin Mitra"/>
+                    <filter name="arsip" string="Diarsipkan" domain="[('active', '=', False)]"/>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_koperasi_mitra" model="ir.actions.act_window">
+            <field name="name">Mitra</field>
+            <field name="res_model">koperasi.mitra</field>
+            <field name="view_mode">list,form</field>
+            <field name="search_view_id" ref="view_koperasi_mitra_search"/>
+        </record>
+
+    </data>
+</odoo>

@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- ============ Tagihan simpanan ============ -->
+        <record id="view_koperasi_tagihan_list" model="ir.ui.view">
+            <field name="name">koperasi.tagihan.list</field>
+            <field name="model">koperasi.tagihan</field>
+            <field name="arch" type="xml">
+                <list string="Tagihan" create="0">
+                    <field name="currency_id" column_invisible="1"/>
+                    <field name="name"/>
+                    <field name="mitra_id"/>
+                    <field name="periode_id"/>
+                    <field name="jumlah_anggota"/>
+                    <field name="total_simpok" sum="Total" optional="hide"/>
+                    <field name="total_simwa" sum="Total" optional="hide"/>
+                    <field name="total_simsula" sum="Total" optional="hide"/>
+                    <field name="total_angsuran_pokok" sum="Total" optional="hide"/>
+                    <field name="total_angsuran_jasa" sum="Total" optional="hide"/>
+                    <field name="total_tunggakan" sum="Total" optional="hide"/>
+                    <field name="total" sum="Total"/>
+                    <field name="total_dibayar" sum="Total" optional="show"/>
+                    <field name="total_belum" sum="Total" optional="show"
+                           decoration-danger="total_belum &gt; 0"/>
+                    <field name="state" widget="badge"
+                           decoration-muted="state == 'draft'"
+                           decoration-warning="state == 'terbit'"
+                           decoration-success="state == 'lunas'"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_koperasi_tagihan_form" model="ir.ui.view">
+            <field name="name">koperasi.tagihan.form</field>
+            <field name="model">koperasi.tagihan</field>
+            <field name="arch" type="xml">
+                <form string="Tagihan" create="0">
+                    <header>
+                        <button name="action_terbitkan" type="object" string="Tagihkan"
+                                class="btn-primary" invisible="state != 'draft'"
+                                groups="koperasi.group_koperasi_operator"/>
+                        <button name="action_hitung_ulang" type="object" string="Hitung Ulang"
+                                invisible="state != 'draft'"
+                                confirm="Rincian akan dihapus dan dihitung ulang dari data anggota saat ini. Lanjutkan?"
+                                groups="koperasi.group_koperasi_operator"/>
+                        <button name="action_bayar_semua" type="object" string="Tandai Semua Dibayar"
+                                class="btn-primary" invisible="state != 'terbit' or jumlah_menunggu == 0"
+                                confirm="Semua anggota yang belum divalidasi akan ditandai Dibayar. Anggota yang sudah ditandai Belum Dibayar tidak berubah. Lanjutkan?"
+                                groups="koperasi.group_koperasi_operator"/>
+                        <button name="action_kembali_draft" type="object" string="Kembalikan ke Draft"
+                                invisible="state != 'terbit'"
+                                groups="koperasi.group_koperasi_operator"/>
+                        <button name="action_unduh_excel" type="object" string="Unduh Excel"
+                                class="btn-success" icon="fa-file-excel-o" invisible="not id"/>
+                        <field name="state" widget="statusbar"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_title">
+                            <h1><field name="name"/></h1>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="mitra_id" options="{'no_open': True}"/>
+                                <field name="periode_id" options="{'no_open': True}"/>
+                                <field name="jumlah_anggota"/>
+                            </group>
+                            <group>
+                                <field name="tanggal_terbit"/>
+                                <field name="tanggal_bayar"/>
+                                <field name="jumlah_menunggu" invisible="state != 'terbit'"/>
+                                <field name="jumlah_belum" invisible="jumlah_belum == 0"
+                                       class="text-danger"/>
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="Rincian per Anggota" name="rincian">
+                                <field name="line_ids" readonly="state != 'draft'">
+                                    <list editable="bottom" create="0"
+                                          decoration-success="status == 'dibayar'"
+                                          decoration-danger="status == 'belum'">
+                                        <field name="currency_id" column_invisible="1"/>
+                                        <field name="state" column_invisible="1"/>
+                                        <field name="dibawa_ke_id" column_invisible="1"/>
+                                        <field name="anggota_id" options="{'no_create': True}"
+                                               domain="[('mitra_id', '=', parent.mitra_id), ('state', '=', 'aktif')]"/>
+                                        <field name="simpok" sum="Total" optional="show"/>
+                                        <field name="simwa" sum="Total" optional="show"/>
+                                        <field name="simsula" sum="Total" optional="show"/>
+                                        <field name="angsuran_pokok" sum="Total" optional="show"/>
+                                        <field name="angsuran_jasa" sum="Total" optional="show"/>
+                                        <field name="tunggakan" sum="Total" optional="show"/>
+                                        <field name="total" sum="Total"/>
+                                        <field name="status" widget="badge"
+                                               decoration-muted="status == 'menunggu'"
+                                               decoration-success="status == 'dibayar'"
+                                               decoration-danger="status == 'belum'"/>
+                                        <button name="action_dibayar" type="object" icon="fa-check"
+                                                title="Tandai Dibayar" class="text-success"
+                                                invisible="state not in ('terbit', 'lunas') or status == 'dibayar' or dibawa_ke_id"
+                                                groups="koperasi.group_koperasi_operator"/>
+                                        <button name="action_belum_dibayar" type="object" icon="fa-times"
+                                                title="Tandai Belum Dibayar (jadi tunggakan)" class="text-danger"
+                                                invisible="state not in ('terbit', 'lunas') or status == 'belum' or dibawa_ke_id"
+                                                groups="koperasi.group_koperasi_operator"/>
+                                        <button name="action_batal_validasi" type="object" icon="fa-undo"
+                                                title="Batalkan Validasi"
+                                                invisible="state not in ('terbit', 'lunas') or status == 'menunggu' or dibawa_ke_id"
+                                                groups="koperasi.group_koperasi_operator"/>
+                                    </list>
+                                </field>
+                                <group class="oe_subtotal_footer">
+                                    <field name="currency_id" invisible="1"/>
+                                    <field name="total_simpok"/>
+                                    <field name="total_simwa"/>
+                                    <field name="total_simsula"/>
+                                    <field name="total_angsuran_pokok"
+                                           invisible="total_angsuran_pokok == 0 and total_angsuran_jasa == 0"/>
+                                    <field name="total_angsuran_jasa"
+                                           invisible="total_angsuran_pokok == 0 and total_angsuran_jasa == 0"/>
+                                    <field name="total_tunggakan" invisible="total_tunggakan == 0"/>
+                                    <field name="total" class="oe_subtotal_footer_separator"/>
+                                    <field name="total_dibayar" class="text-success"
+                                           invisible="state == 'draft'"/>
+                                    <field name="total_belum" class="text-danger"
+                                           invisible="state == 'draft' or total_belum == 0"/>
+                                </group>
+                            </page>
+                            <page string="Catatan" name="catatan">
+                                <field name="catatan" placeholder="Catatan untuk tagihan ini..."/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <record id="view_koperasi_tagihan_search" model="ir.ui.view">
+            <field name="name">koperasi.tagihan.search</field>
+            <field name="model">koperasi.tagihan</field>
+            <field name="arch" type="xml">
+                <search string="Cari Tagihan">
+                    <field name="name"/>
+                    <field name="mitra_id"/>
+                    <field name="periode_id"/>
+                    <filter name="f_draft" string="Draft" domain="[('state', '=', 'draft')]"/>
+                    <filter name="f_terbit" string="Ditagihkan" domain="[('state', '=', 'terbit')]"/>
+                    <filter name="f_lunas" string="Selesai" domain="[('state', '=', 'lunas')]"/>
+                    <filter name="f_ada_belum" string="Ada yang Belum Membayar"
+                            domain="[('jumlah_belum', '>', 0)]"/>
+                    <separator/>
+                    <filter name="f_periode" string="Periode" date="periode"/>
+                    <group>
+                        <filter name="g_mitra" string="Mitra" context="{'group_by': 'mitra_id'}"/>
+                        <filter name="g_periode" string="Periode" context="{'group_by': 'periode_id'}"/>
+                        <filter name="g_state" string="Status" context="{'group_by': 'state'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_koperasi_tagihan" model="ir.actions.act_window">
+            <field name="name">Tagihan</field>
+            <field name="res_model">koperasi.tagihan</field>
+            <field name="view_mode">list,form</field>
+            <field name="search_view_id" ref="view_koperasi_tagihan_search"/>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">Belum ada tagihan</p>
+                <p>Tagihan dibuat otomatis tiap tanggal 1, atau lewat menu Buat Tagihan.</p>
+            </field>
+        </record>
+
+        <!-- Daftar rincian tagihan satu anggota, dibuka dari smart button form anggota -->
+        <record id="view_koperasi_tagihan_line_list" model="ir.ui.view">
+            <field name="name">koperasi.tagihan.line.list</field>
+            <field name="model">koperasi.tagihan.line</field>
+            <field name="arch" type="xml">
+                <list string="Rincian Tagihan" create="0" edit="0" delete="0">
+                    <field name="currency_id" column_invisible="1"/>
+                    <field name="periode_id"/>
+                    <field name="tagihan_id"/>
+                    <field name="anggota_id" optional="hide"/>
+                    <field name="simpok" sum="Total"/>
+                    <field name="simwa" sum="Total"/>
+                    <field name="simsula" sum="Total"/>
+                    <field name="angsuran_pokok" sum="Total" optional="show"/>
+                    <field name="angsuran_jasa" sum="Total" optional="show"/>
+                    <field name="tunggakan" optional="show"/>
+                    <field name="total" sum="Total"/>
+                    <field name="status" widget="badge"
+                           decoration-muted="status == 'menunggu'"
+                           decoration-success="status == 'dibayar'"
+                           decoration-danger="status == 'belum'"/>
+                    <field name="tanggal_bayar" optional="show"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- ============ Periode ============ -->
+        <record id="view_koperasi_periode_list" model="ir.ui.view">
+            <field name="name">koperasi.periode.list</field>
+            <field name="model">koperasi.periode</field>
+            <field name="arch" type="xml">
+                <list string="Periode" editable="top">
+                    <header>
+                        <button name="action_buat_12_bulan" type="object" display="always"
+                                string="Tambah 12 Bulan Berikutnya" class="btn-secondary"/>
+                    </header>
+                    <field name="name"/>
+                    <field name="bulan"/>
+                    <field name="tahun" options="{'format': false}"/>
+                    <field name="tanggal_mulai"/>
+                    <field name="tanggal_akhir"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_koperasi_periode_search" model="ir.ui.view">
+            <field name="name">koperasi.periode.search</field>
+            <field name="model">koperasi.periode</field>
+            <field name="arch" type="xml">
+                <search string="Cari Periode">
+                    <field name="name"/>
+                    <field name="tahun"/>
+                    <group>
+                        <filter name="g_tahun" string="Tahun" context="{'group_by': 'tahun'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_koperasi_periode" model="ir.actions.act_window">
+            <field name="name">Periode</field>
+            <field name="res_model">koperasi.periode</field>
+            <field name="view_mode">list</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">Belum ada periode</p>
+                <p>Cukup pilih bulan dan tahun; nama serta tanggal mulai dan akhir terisi otomatis.</p>
+            </field>
+        </record>
+
+        <!-- ============ Pengaturan ============ -->
+        <record id="view_koperasi_pengaturan_form" model="ir.ui.view">
+            <field name="name">koperasi.pengaturan.form</field>
+            <field name="model">koperasi.pengaturan</field>
+            <field name="arch" type="xml">
+                <form string="Pengaturan" create="0" delete="0" duplicate="0">
+                    <sheet>
+                        <div class="oe_title">
+                            <h1><field name="name"/></h1>
+                        </div>
+                        <group>
+                            <group string="Besaran Simpanan">
+                                <field name="currency_id" invisible="1"/>
+                                <field name="simpok"/>
+                                <field name="simwa"/>
+                            </group>
+                            <group string="Batas Potongan Gaji">
+                                <field name="batas_potongan"/>
+                                <field name="plafon_kelipatan"/>
+                            </group>
+                        </group>
+                        <p class="text-muted">
+                            Berlaku untuk semua anggota di semua mitra. Perubahan besaran simpanan
+                            dipakai mulai tagihan yang dibuat berikutnya; tagihan yang sudah ada tidak
+                            berubah. Simpanan sukarela diatur per anggota di form Anggota.
+                        </p>
+                        <p class="text-muted">
+                            Batas potongan gaji sudah termasuk simpanan. Sisanya menjadi angsuran
+                            maksimum pinjaman, yang menentukan plafon pinjaman anggota. Jasa, biaya
+                            admin, dan tenor diatur per produk di menu Produk Pinjaman.
+                        </p>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_koperasi_pengaturan" model="ir.actions.act_window">
+            <field name="name">Pengaturan Simpanan</field>
+            <field name="res_model">koperasi.pengaturan</field>
+            <field name="view_mode">form</field>
+            <field name="res_id" ref="pengaturan_utama"/>
+        </record>
+
+    </data>
+</odoo>

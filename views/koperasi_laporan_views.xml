@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Komponen OWL: static/src/laporan/laporan.js -->
+        <record id="action_koperasi_laporan" model="ir.actions.client">
+            <field name="name">Laporan</field>
+            <field name="tag">koperasi.laporan</field>
+        </record>
+    </data>
+</odoo>

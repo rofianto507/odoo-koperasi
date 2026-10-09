@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+
+<t t-name="koperasi.Laporan">
+<div class="kop-dashboard kop-laporan">
+
+    <!-- ── Sidebar jenis laporan ──────────────────────────────────────────── -->
+    <div t-attf-class="kop-sidebar #{ state.sidebarCollapsed ? 'collapsed' : '' }">
+        <div class="kop-sidebar-brand">
+            <img class="kop-sidebar-logo" src="/koperasi/static/src/img/logo_laporan.png" alt="Koperasi"/>
+        </div>
+        <div class="kop-sidebar-section">
+            <div class="kop-sidebar-section-title">Laporan</div>
+            <t t-foreach="state.opsi.jenis" t-as="j" t-key="j.id">
+                <div t-attf-class="kop-sidebar-item #{ state.jenis === j.id ? 'active' : '' }"
+                     t-on-click="() => this.setJenis(j.id)" t-att-title="j.label">
+                    <i t-attf-class="fa #{j.ikon}"/>
+                    <span t-esc="j.label"/>
+                </div>
+            </t>
+        </div>
+        <div class="kop-sidebar-footer">
+            <div class="kop-sidebar-toggle" t-on-click="toggleSidebar"
+                 t-att-title="state.sidebarCollapsed ? 'Buka sidebar' : 'Tutup sidebar'">
+                <i t-attf-class="fa #{ state.sidebarCollapsed ? 'fa-chevron-right' : 'fa-chevron-left' }"/>
+            </div>
+        </div>
+    </div>
+
+    <div class="kop-main">
+
+        <!-- ── Judul, tombol unduh, dan filter: satu kartu ───────────────── -->
+        <div class="kop-header kop-lap-kepala">
+            <div class="kop-lap-kepala-atas">
+                <div class="kop-header-left">
+                    <i t-attf-class="fa #{jenisAktif.ikon} kop-header-icon"/>
+                    <h1 t-esc="jenisAktif.label"/>
+                    <span t-if="state.laporan and !state.laporan.perlu_anggota" class="kop-header-sub"
+                          t-esc="state.laporan.periode_label"/>
+                </div>
+                <div class="kop-header-right">
+                    <button class="kop-btn kop-btn--pdf" t-att-disabled="!bisaUnduh" t-on-click="() => this.unduh('pdf')">
+                        <i class="fa fa-file-pdf-o"/> PDF
+                    </button>
+                    <button class="kop-btn kop-btn--xlsx" t-att-disabled="!bisaUnduh" t-on-click="() => this.unduh('xlsx')">
+                        <i class="fa fa-file-excel-o"/> Excel
+                    </button>
+                </div>
+            </div>
+
+            <div class="kop-lap-filter">
+                <div t-if="state.opsi.mitra_list.length > 1" class="kop-lap-filter-item">
+                    <label>Mitra</label>
+                    <select class="kop-select" t-on-change="onMitra">
+                        <option value="" t-att-selected="!state.mitraId">Semua Mitra</option>
+                        <t t-foreach="state.opsi.mitra_list" t-as="m" t-key="m.id">
+                            <option t-att-value="m.id" t-att-selected="state.mitraId === m.id" t-esc="m.name"/>
+                        </t>
+                    </select>
+                </div>
+                <div class="kop-lap-filter-item">
+                    <label>Dari periode</label>
+                    <select class="kop-select kop-select--periode" t-on-change="onDari">
+                        <t t-foreach="state.opsi.periode_list" t-as="p" t-key="p.id">
+                            <option t-att-value="p.id" t-att-selected="state.dari === p.id"
+                                    t-att-disabled="periodeLewat(p.id, state.sampai)" t-esc="p.name"/>
+                        </t>
+                    </select>
+                </div>
+                <div class="kop-lap-filter-item">
+                    <label>Sampai periode</label>
+                    <select class="kop-select kop-select--periode" t-on-change="onSampai">
+                        <t t-foreach="state.opsi.periode_list" t-as="p" t-key="p.id">
+                            <option t-att-value="p.id" t-att-selected="state.sampai === p.id"
+                                    t-att-disabled="periodeLewat(state.dari, p.id)" t-esc="p.name"/>
+                        </t>
+                    </select>
+                </div>
+                <div t-if="state.jenis === 'anggota'" class="kop-lap-filter-item kop-lap-filter-item--lebar">
+                    <label>Anggota</label>
+                    <select class="kop-select kop-select--anggota" t-on-change="onAnggota">
+                        <option value="" t-att-selected="!state.anggotaId">— Pilih anggota —</option>
+                        <t t-foreach="state.anggotaList" t-as="a" t-key="a.id">
+                            <option t-att-value="a.id" t-att-selected="state.anggotaId === a.id" t-esc="a.name"/>
+                        </t>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div t-if="state.galat" class="kop-error"><i class="fa fa-exclamation-triangle"/> <t t-esc="state.galat"/></div>
+        <div t-if="state.loading and !state.laporan" class="kop-loading">
+            <i class="fa fa-spinner fa-spin"/> <span>Menyusun laporan...</span>
+        </div>
+
+        <t t-if="state.laporan">
+            <div t-attf-class="kop-lap-isi #{ state.loading ? 'kop-lap-isi--muat' : '' }">
+
+                <!-- Anggota belum dipilih -->
+                <div t-if="state.laporan.perlu_anggota" class="kop-panel kop-empty">
+                    <i class="fa fa-address-book-o kop-empty-icon"/>
+                    <span>Pilih anggota pada filter di atas untuk melihat buku simpanannya.</span>
+                </div>
+
+                <t t-else="">
+                    <div class="kop-lap-subjudul">
+                        <span t-esc="state.laporan.subjudul"/>
+                        <span class="kop-lap-meta">
+                            <t t-esc="state.laporan.mitra_label"/> · dibuat <t t-esc="state.laporan.dibuat"/>
+                        </span>
+                    </div>
+
+                    <!-- Identitas anggota (buku simpanan) -->
+                    <div t-if="state.laporan.identitas" class="kop-lap-identitas">
+                        <t t-foreach="state.laporan.identitas" t-as="idt" t-key="idt_index">
+                            <div><span t-esc="idt[0]"/><b t-esc="idt[1]"/></div>
+                        </t>
+                    </div>
+
+                    <!-- Kartu ringkasan -->
+                    <div t-if="state.laporan.ringkasan.length" class="kop-lap-kartu-row">
+                        <t t-foreach="state.laporan.ringkasan" t-as="k" t-key="k_index">
+                            <div class="kop-lap-kartu">
+                                <div class="kop-lap-kartu-label" t-esc="k.label"/>
+                                <div class="kop-lap-kartu-nilai" t-esc="nilaiKartu(k)"/>
+                                <div t-if="k.nilai !== null" class="kop-lap-kartu-sub" t-esc="k.sub"/>
+                            </div>
+                        </t>
+                    </div>
+
+                    <!-- Tabel -->
+                    <t t-foreach="state.laporan.bagian" t-as="b" t-key="b_index">
+                        <div class="kop-panel kop-lap-bagian">
+                            <div class="kop-panel-header">
+                                <span t-esc="b.judul"/>
+                                <span class="kop-count-badge kop-count-badge--biru"
+                                      t-esc="b.baris.length + ' baris'"/>
+                            </div>
+                            <div t-if="!b.baris.length" class="kop-empty">
+                                <i class="fa fa-inbox kop-empty-icon"/>
+                                <span t-esc="b.kosong"/>
+                            </div>
+                            <div t-else="" class="kop-table-wrap">
+                                <table t-attf-class="kop-table #{ b.kolom.length === 2 ? 'kop-lap-dua' : '' }">
+                                    <thead>
+                                        <tr>
+                                            <t t-foreach="b.kolom" t-as="k" t-key="k.key">
+                                                <th t-att-class="kelasSel(k)" t-esc="k.label"/>
+                                            </t>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <t t-foreach="b.baris" t-as="r" t-key="r_index">
+                                            <tr t-att-class="kelasBaris(r)">
+                                                <t t-foreach="b.kolom" t-as="k" t-key="k.key">
+                                                    <td t-if="k.tipe === 'status'" class="kop-tgh">
+                                                        <span t-if="r[k.key]" t-att-class="kelasStatus(r[k.key])"
+                                                              t-esc="r[k.key]"/>
+                                                    </td>
+                                                    <td t-elif="k.tipe === 'kode'" class="kop-code" t-esc="r[k.key] or ''"/>
+                                                    <td t-else="" t-att-class="kelasSel(k)"
+                                                        t-att-title="r[k.key]" t-esc="fmt(r[k.key], k.tipe)"/>
+                                                </t>
+                                            </tr>
+                                        </t>
+                                        <tr t-if="tampilTotal(b)" class="kop-lap-baris-jumlah">
+                                            <t t-foreach="b.kolom" t-as="k" t-key="k.key">
+                                                <td t-att-class="kelasSel(k)" t-esc="selTotal(b, k, k_index)"/>
+                                            </t>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div t-if="b.catatan" class="kop-lap-catatan" t-esc="b.catatan"/>
+                        </div>
+                    </t>
+
+                    <div class="kop-lap-penutup">
+                        <div t-foreach="state.laporan.catatan" t-as="c" t-key="c_index">• <t t-esc="c"/></div>
+                    </div>
+                </t>
+            </div>
+        </t>
+    </div>
+</div>
+</t>
+
+</templates>

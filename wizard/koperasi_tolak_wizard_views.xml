@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="view_koperasi_tolak_wizard_form" model="ir.ui.view">
+            <field name="name">koperasi.tolak.wizard.form</field>
+            <field name="model">koperasi.tolak.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Alasan Penolakan">
+                    <field name="res_model" invisible="1"/>
+                    <field name="res_id" invisible="1"/>
+                    <group>
+                        <field name="alasan_tolak" nolabel="1" placeholder="Jelaskan alasan penolakan..."/>
+                    </group>
+                    <footer>
+                        <button name="action_konfirmasi" type="object" string="Tolak" class="btn-danger"/>
+                        <button special="cancel" string="Batal" class="btn-secondary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+    </data>
+</odoo>

@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+
+        <!-- Admin mitra: hanya data mitranya sendiri. Bila akun belum terhubung
+             ke mitra, domain menjadi id = False sehingga tidak melihat apa pun. -->
+        <record id="rule_koperasi_mitra_own" model="ir.rule">
+            <field name="name">Mitra: admin mitra hanya melihat mitranya</field>
+            <field name="model_id" ref="model_koperasi_mitra"/>
+            <field name="domain_force">[('id', '=', user.koperasi_mitra_id.id)]</field>
+            <field name="groups" eval="[(4, ref('group_koperasi_mitra'))]"/>
+        </record>
+
+        <record id="rule_koperasi_anggota_own" model="ir.rule">
+            <field name="name">Anggota: admin mitra hanya anggota mitranya</field>
+            <field name="model_id" ref="model_koperasi_anggota"/>
+            <field name="domain_force">[('mitra_id', '=', user.koperasi_mitra_id.id)]</field>
+            <field name="groups" eval="[(4, ref('group_koperasi_mitra'))]"/>
+        </record>
+
+        <record id="rule_koperasi_anggota_gaji_own" model="ir.rule">
+            <field name="name">Riwayat gaji: admin mitra hanya anggota mitranya</field>
+            <field name="model_id" ref="model_koperasi_anggota_gaji"/>
+            <field name="domain_force">[('anggota_id.mitra_id', '=', user.koperasi_mitra_id.id)]</field>
+            <field name="groups" eval="[(4, ref('group_koperasi_mitra'))]"/>
+        </record>
+
+        <record id="rule_koperasi_anggota_gaji_operator" model="ir.rule">
+            <field name="name">Riwayat gaji: operator melihat semua</field>
+            <field name="model_id" ref="model_koperasi_anggota_gaji"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('group_koperasi_operator'))]"/>
+        </record>
+
+        <record id="rule_koperasi_simsula_own" model="ir.rule">
+            <field name="name">Riwayat simsula: admin mitra hanya anggota mitranya</field>
+            <field name="model_id" ref="model_koperasi_simsula"/>
+            <field name="domain_force">[('anggota_id.mitra_id', '=', user.koperasi_mitra_id.id)]</field>
+            <field name="groups" eval="[(4, ref('group_koperasi_mitra'))]"/>
+        </record>
+
+        <record id="rule_koperasi_simsula_operator" model="ir.rule">
+            <field name="name">Riwayat simsula: operator melihat semua</field>
+            <field name="model_id" ref="model_koperasi_simsula"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('group_koperasi_operator'))]"/>
+        </record>
+
+        <!-- Tagihan: admin mitra hanya melihat tagihan mitranya yang sudah
+             ditagihkan; Draft masih bahan kerja operator. -->
+        <record id="rule_koperasi_tagihan_own" model="ir.rule">
+            <field name="name">Tagihan: admin mitra hanya tagihan mitranya yang sudah ditagihkan</field>
+            <field name="model_id" ref="model_koperasi_tagihan"/>
+            <field name="domain_force">[('mitra_id', '=', user.koperasi_mitra_id.id), ('state', '!=', 'draft')]</field>
+            <field name="groups" eval="[(4, ref('group_koperasi_mitra'))]"/>
+        </record>
+
+        <record id="rule_koperasi_tagihan_operator" model="ir.rule">
+            <field name="name">Tagihan: operator melihat semua</field>
+            <field name="model_id" ref="model_koperasi_tagihan"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('group_koperasi_operator'))]"/>
+        </record>
+
+        <record id="rule_koperasi_tagihan_line_own" model="ir.rule">
+            <field name="name">Rincian tagihan: admin mitra hanya tagihan mitranya yang sudah ditagihkan</field>
+            <field name="model_id" ref="model_koperasi_tagihan_line"/>
+            <field name="domain_force">[('tagihan_id.mitra_id', '=', user.koperasi_mitra_id.id), ('tagihan_id.state', '!=', 'draft')]</field>
+            <field name="groups" eval="[(4, ref('group_koperasi_mitra'))]"/>
+        </record>
+
+        <record id="rule_koperasi_tagihan_line_operator" model="ir.rule">
+            <field name="name">Rincian tagihan: operator melihat semua</field>
+            <field name="model_id" ref="model_koperasi_tagihan_line"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('group_koperasi_operator'))]"/>
+        </record>
+
+        <!-- Pinjaman: admin mitra hanya pinjaman anggota mitranya -->
+        <record id="rule_koperasi_pinjaman_own" model="ir.rule">
+            <field name="name">Pinjaman: admin mitra hanya pinjaman mitranya</field>
+            <field name="model_id" ref="model_koperasi_pinjaman"/>
+            <field name="domain_force">[('mitra_id', '=', user.koperasi_mitra_id.id)]</field>
+            <field name="groups" eval="[(4, ref('group_koperasi_mitra'))]"/>
+        </record>
+
+        <record id="rule_koperasi_pinjaman_operator" model="ir.rule">
+            <field name="name">Pinjaman: operator melihat semua</field>
+            <field name="model_id" ref="model_koperasi_pinjaman"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('group_koperasi_operator'))]"/>
+        </record>
+
+        <record id="rule_koperasi_pinjaman_angsuran_own" model="ir.rule">
+            <field name="name">Angsuran: admin mitra hanya pinjaman mitranya</field>
+            <field name="model_id" ref="model_koperasi_pinjaman_angsuran"/>
+            <field name="domain_force">[('pinjaman_id.mitra_id', '=', user.koperasi_mitra_id.id)]</field>
+            <field name="groups" eval="[(4, ref('group_koperasi_mitra'))]"/>
+        </record>
+
+        <record id="rule_koperasi_pinjaman_angsuran_operator" model="ir.rule">
+            <field name="name">Angsuran: operator melihat semua</field>
+            <field name="model_id" ref="model_koperasi_pinjaman_angsuran"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('group_koperasi_operator'))]"/>
+        </record>
+
+        <!-- Operator: tanpa batas. Operator juga implied admin mitra, jadi rule
+             ini di-OR-kan dengan rule di atas dan menang. -->
+        <record id="rule_koperasi_mitra_operator" model="ir.rule">
+            <field name="name">Mitra: operator melihat semua</field>
+            <field name="model_id" ref="model_koperasi_mitra"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('group_koperasi_operator'))]"/>
+        </record>
+
+        <record id="rule_koperasi_anggota_operator" model="ir.rule">
+            <field name="name">Anggota: operator melihat semua</field>
+            <field name="model_id" ref="model_koperasi_anggota"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('group_koperasi_operator'))]"/>
+        </record>
+
+    </data>
+</odoo>
