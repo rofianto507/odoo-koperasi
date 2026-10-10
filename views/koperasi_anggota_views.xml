@@ -2,6 +2,15 @@
 <odoo>
     <data>
 
+        <!-- Wizard impor (form-nya di wizard/koperasi_impor_anggota_wizard_views.xml); aksinya di sini
+             karena dirujuk tombol di daftar anggota di bawah -->
+        <record id="action_koperasi_impor_anggota_wizard" model="ir.actions.act_window">
+            <field name="name">Impor Anggota</field>
+            <field name="res_model">koperasi.impor.anggota.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+        </record>
+
         <record id="view_koperasi_anggota_list" model="ir.ui.view">
             <field name="name">koperasi.anggota.list</field>
             <field name="model">koperasi.anggota</field>
@@ -12,6 +21,10 @@
                       decoration-success="state == 'aktif'"
                       decoration-danger="state == 'ditolak'"
                       decoration-it="state == 'keluar'">
+                    <header>
+                        <button name="%(koperasi.action_koperasi_impor_anggota_wizard)d" type="action"
+                                string="Impor dari Excel" class="btn-secondary" display="always"/>
+                    </header>
                     <field name="avatar_128" widget="image"
                            options="{'size': [24, 24], 'img_class': 'o_avatar rounded'}"
                            width="30" nolabel="1"/>

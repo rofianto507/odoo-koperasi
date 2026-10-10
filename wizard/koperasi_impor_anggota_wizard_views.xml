@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_koperasi_impor_anggota_wizard_form" model="ir.ui.view">
+            <field name="name">koperasi.impor.anggota.wizard.form</field>
+            <field name="model">koperasi.impor.anggota.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Impor Anggota">
+                    <field name="state" invisible="1"/>
+                    <field name="mitra_terkunci" invisible="1"/>
+                    <field name="nama_berkas" invisible="1"/>
+
+                    <!-- Langkah 1: unggah -->
+                    <div invisible="state != 'unggah'">
+                        <div class="alert alert-info" role="alert">
+                            <b>Cara impor:</b> unduh templat, isi satu pegawai per baris, lalu unggah di sini.
+                            Sebelum disimpan, tiap baris diperiksa dulu dan hasilnya ditampilkan.
+                            <div class="mt-2">
+                                <button name="action_unduh_templat" type="object" class="btn btn-success"
+                                        icon="fa-file-excel-o" string="Unduh Templat Excel"/>
+                            </div>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="mitra_id" readonly="mitra_terkunci"
+                                       options="{'no_create': True, 'no_open': True}"/>
+                                <field name="berkas" filename="nama_berkas"/>
+                            </group>
+                        </group>
+                    </div>
+
+                    <!-- Langkah 2: hasil pemeriksaan -->
+                    <div invisible="state != 'periksa'">
+                        <div class="d-flex flex-wrap gap-3 mb-3">
+                            <div class="alert alert-success mb-0 flex-fill" role="alert">
+                                <b><field name="jumlah_ok" class="d-inline"/></b> baris siap diimpor
+                            </div>
+                            <div class="alert alert-danger mb-0 flex-fill" role="alert" invisible="jumlah_galat == 0">
+                                <b><field name="jumlah_galat" class="d-inline"/></b> baris bermasalah dan
+                                <b>tidak</b> akan diimpor
+                            </div>
+                        </div>
+                        <p class="text-muted" invisible="jumlah_galat == 0">
+                            Baris bermasalah bisa dibetulkan di berkas Excel lalu diunggah ulang (klik Ganti Berkas),
+                            atau dilewati dan diinput belakangan. Baris yang sudah siap tetap bisa diimpor sekarang.
+                        </p>
+                        <field name="line_ids" readonly="1">
+                            <list decoration-danger="status == 'galat'" limit="200">
+                                <field name="baris"/>
+                                <field name="nama"/>
+                                <field name="nip"/>
+                                <field name="gaji_bersih"/>
+                                <field name="status" widget="badge"
+                                       decoration-success="status == 'ok'"
+                                       decoration-danger="status == 'galat'"/>
+                                <field name="pesan"/>
+                            </list>
+                        </field>
+                        <group>
+                            <field name="mitra_id" readonly="1" options="{'no_open': True}"/>
+                            <field name="ajukan" invisible="jumlah_ok == 0"/>
+                        </group>
+                    </div>
+
+                    <!-- Langkah 3: selesai -->
+                    <div invisible="state != 'selesai'">
+                        <div class="alert alert-success" role="alert">
+                            <b><field name="jumlah_impor" class="d-inline"/></b> anggota berhasil diimpor ke
+                            <b><field name="mitra_id" class="d-inline" readonly="1" options="{'no_open': True}"/></b>.
+                            <span invisible="ajukan">Statusnya Draft: periksa bila perlu, lalu ajukan validasi
+                                (bisa sekaligus dari daftar anggota, menu Tindakan).</span>
+                            <span invisible="not ajukan">Semuanya sudah diajukan dan menunggu persetujuan operator.</span>
+                        </div>
+                        <field name="ajukan" invisible="1"/>
+                    </div>
+
+                    <footer>
+                        <button name="action_periksa" type="object" string="Periksa Berkas" class="btn-primary"
+                                invisible="state != 'unggah'"/>
+                        <button name="action_impor" type="object" string="Impor Baris yang Siap" class="btn-primary"
+                                invisible="state != 'periksa' or jumlah_ok == 0"/>
+                        <button name="action_kembali" type="object" string="Ganti Berkas"
+                                invisible="state != 'periksa'"/>
+                        <button name="action_lihat_hasil" type="object" string="Lihat Anggota yang Diimpor"
+                                class="btn-primary" invisible="state != 'selesai'"/>
+                        <button special="cancel" string="Tutup" class="btn-secondary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <!-- Menu Anggota menjadi induk: daftar dan impor -->
+        <menuitem id="menu_koperasi_anggota_daftar" name="Anggota" parent="menu_koperasi_anggota"
+                  action="action_koperasi_anggota" sequence="10"/>
+        <menuitem id="menu_koperasi_anggota_impor" name="Impor dari Excel" parent="menu_koperasi_anggota"
+                  action="action_koperasi_impor_anggota_wizard" sequence="20"/>
+
+        <!-- Aksi massal di daftar anggota (menu Tindakan setelah mencentang baris) -->
+        <record id="aksi_koperasi_anggota_ajukan_massal" model="ir.actions.server">
+            <field name="name">Ajukan Validasi</field>
+            <field name="model_id" ref="model_koperasi_anggota"/>
+            <field name="binding_model_id" ref="model_koperasi_anggota"/>
+            <field name="binding_view_types">list</field>
+            <field name="state">code</field>
+            <field name="code">action = records.action_ajukan_massal()</field>
+            <field name="group_ids" eval="[(4, ref('koperasi.group_koperasi_mitra'))]"/>
+        </record>
+
+        <record id="aksi_koperasi_anggota_setujui_massal" model="ir.actions.server">
+            <field name="name">Setujui</field>
+            <field name="model_id" ref="model_koperasi_anggota"/>
+            <field name="binding_model_id" ref="model_koperasi_anggota"/>
+            <field name="binding_view_types">list</field>
+            <field name="state">code</field>
+            <field name="code">action = records.action_setujui_massal()</field>
+            <field name="group_ids" eval="[(4, ref('koperasi.group_koperasi_operator'))]"/>
+        </record>
+
+    </data>
+</odoo>

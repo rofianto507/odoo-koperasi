@@ -487,6 +487,36 @@ class KoperasiAnggota(models.Model):
                 'tanggal_validasi': fields.Datetime.now(),
             })
 
+    # ------------------------------------------------------------------
+    # Aksi massal dari daftar (menu Tindakan): yang tidak memenuhi syarat dilewati, bukan digagalkan
+    # ------------------------------------------------------------------
+    def _notifikasi_massal(self, pesan, jenis='success'):
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {'type': jenis, 'message': pesan,
+                       'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'}},
+        }
+
+    def action_ajukan_massal(self):
+        siap = self.filtered(lambda r: r.state in STATE_EDITABLE_MITRA)
+        siap.action_ajukan()
+        lewat = len(self) - len(siap)
+        pesan = _('%d anggota diajukan untuk divalidasi.', len(siap))
+        if lewat:
+            pesan += ' ' + _('%d dilewati karena statusnya bukan Draft atau Ditolak.', lewat)
+        return self._notifikasi_massal(pesan, 'success' if siap else 'warning')
+
+    def action_setujui_massal(self):
+        self._cek_operator()
+        siap = self.filtered(lambda r: r.state == 'menunggu' and r.mitra_id.active)
+        siap.action_setujui()
+        lewat = len(self) - len(siap)
+        pesan = _('%d anggota disetujui dan menjadi Aktif.', len(siap))
+        if lewat:
+            pesan += ' ' + _('%d dilewati karena tidak berstatus Menunggu Validasi atau mitranya tidak aktif.', lewat)
+        return self._notifikasi_massal(pesan, 'success' if siap else 'warning')
+
     def action_buka_tolak_wizard(self):
         self.ensure_one()
         self._cek_operator()

@@ -25,6 +25,20 @@ class KoperasiTagihanController(http.Controller):
         ])
 
 
+class KoperasiImporController(http.Controller):
+
+    @http.route('/koperasi/anggota/templat.xlsx', type='http', auth='user')
+    def templat_anggota(self, **kw):
+        if not request.env.user.has_group('koperasi.group_koperasi_mitra'):
+            raise request.not_found()
+        isi = request.env['koperasi.impor.anggota.wizard']._buat_templat()
+        return request.make_response(isi, headers=[
+            ('Content-Type', XLSX_MIME),
+            ('Content-Disposition', content_disposition('Templat Impor Anggota.xlsx')),
+            ('Content-Length', len(isi)),
+        ])
+
+
 class KoperasiLaporanController(http.Controller):
     """Unduhan laporan. Semua angka dihitung dengan hak pengguna (tanpa sudo)."""
 

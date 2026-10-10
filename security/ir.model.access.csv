@@ -26,3 +26,5 @@ access_koperasi_jurnal_line_operator,koperasi.jurnal.line operator,model_koperas
 access_koperasi_penarikan_mitra,koperasi.penarikan admin mitra,model_koperasi_penarikan,koperasi.group_koperasi_mitra,1,1,1,1
 access_koperasi_shu_operator,koperasi.shu operator,model_koperasi_shu,koperasi.group_koperasi_operator,1,1,1,1
 access_koperasi_shu_line_operator,koperasi.shu.line operator,model_koperasi_shu_line,koperasi.group_koperasi_operator,1,1,1,1
+access_koperasi_impor_anggota_wizard,koperasi.impor.anggota.wizard,model_koperasi_impor_anggota_wizard,koperasi.group_koperasi_mitra,1,1,1,1
+access_koperasi_impor_anggota_line,koperasi.impor.anggota.line,model_koperasi_impor_anggota_line,koperasi.group_koperasi_mitra,1,1,1,1
