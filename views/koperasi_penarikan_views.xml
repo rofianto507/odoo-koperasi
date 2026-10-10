@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_koperasi_penarikan_list" model="ir.ui.view">
+            <field name="name">koperasi.penarikan.list</field>
+            <field name="model">koperasi.penarikan</field>
+            <field name="arch" type="xml">
+                <list string="Penarikan Simpanan"
+                      decoration-muted="state == 'draft'"
+                      decoration-warning="state == 'diajukan'"
+                      decoration-danger="state == 'ditolak'">
+                    <field name="currency_id" column_invisible="1"/>
+                    <field name="name"/>
+                    <field name="anggota_id"/>
+                    <field name="mitra_id"/>
+                    <field name="jenis"/>
+                    <field name="total" sum="Total"/>
+                    <field name="tanggal_ajukan" optional="show"/>
+                    <field name="tanggal_bayar" optional="show"/>
+                    <field name="state" widget="badge"
+                           decoration-muted="state == 'draft'"
+                           decoration-warning="state == 'diajukan'"
+                           decoration-success="state == 'dibayar'"
+                           decoration-danger="state == 'ditolak'"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_koperasi_penarikan_form" model="ir.ui.view">
+            <field name="name">koperasi.penarikan.form</field>
+            <field name="model">koperasi.penarikan</field>
+            <field name="arch" type="xml">
+                <form string="Penarikan Simpanan">
+                    <header>
+                        <button name="action_ajukan" type="object" string="Ajukan"
+                                class="btn-primary" invisible="state not in ('draft', 'ditolak')"/>
+                        <button name="action_bayar" type="object" string="Catat Pembayaran"
+                                class="btn-primary" invisible="state != 'diajukan'"
+                                groups="koperasi.group_koperasi_operator"
+                                confirm="Pembayaran akan dicatat hari ini, saldo simpanan anggota berkurang, dan jurnal dibuat. Untuk penarikan karena keluar, anggota menjadi berstatus Keluar. Tindakan ini tidak dapat dibatalkan. Lanjutkan?"/>
+                        <button name="action_buka_tolak_wizard" type="object" string="Tolak"
+                                invisible="state != 'diajukan'"
+                                groups="koperasi.group_koperasi_operator"/>
+                        <field name="state" widget="statusbar" statusbar_visible="draft,diajukan,dibayar"/>
+                    </header>
+                    <sheet>
+                        <div class="alert alert-danger" role="alert" invisible="state != 'ditolak'">
+                            <b>Ditolak:</b> <field name="alasan_tolak" readonly="1" class="d-inline"/>
+                        </div>
+                        <div class="alert alert-warning" role="alert"
+                             invisible="jenis != 'keluar' or state == 'dibayar'">
+                            Seluruh simpanan anggota dikembalikan dan anggota menjadi berstatus Keluar.
+                            Syaratnya: tidak ada pinjaman yang belum lunas, tidak ada tunggakan, dan semua
+                            tagihannya sudah divalidasi. Nominal mengikuti saldo saat pembayaran dicatat.
+                        </div>
+                        <div class="oe_title">
+                            <h1><field name="name" placeholder="Nomor dibuat otomatis"/></h1>
+                        </div>
+                        <group>
+                            <group string="Penarikan">
+                                <field name="currency_id" invisible="1"/>
+                                <field name="anggota_id" options="{'no_create': True}"
+                                       readonly="state not in ('draft', 'ditolak')"/>
+                                <field name="mitra_id" options="{'no_open': True}"/>
+                                <field name="jenis" widget="radio"
+                                       readonly="state not in ('draft', 'ditolak')"/>
+                                <field name="simsula" string="Nominal Ditarik"
+                                       invisible="jenis != 'sukarela'"
+                                       readonly="state not in ('draft', 'ditolak')"/>
+                                <field name="simpok" invisible="jenis != 'keluar'"/>
+                                <field name="simwa" invisible="jenis != 'keluar'"/>
+                                <field name="simsula" invisible="jenis != 'keluar'" readonly="1"/>
+                                <field name="total" invisible="jenis != 'keluar'"/>
+                                <field name="keterangan" placeholder="Alasan atau catatan penarikan"/>
+                            </group>
+                            <group string="Saldo Anggota Saat Ini">
+                                <field name="saldo_simpok"/>
+                                <field name="saldo_simwa"/>
+                                <field name="saldo_simsula"/>
+                                <field name="rekening"/>
+                            </group>
+                        </group>
+                        <group>
+                            <group>
+                                <field name="tanggal_ajukan"/>
+                            </group>
+                            <group>
+                                <field name="tanggal_bayar"/>
+                                <field name="pembayar_id" invisible="not pembayar_id"/>
+                            </group>
+                        </group>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <record id="view_koperasi_penarikan_search" model="ir.ui.view">
+            <field name="name">koperasi.penarikan.search</field>
+            <field name="model">koperasi.penarikan</field>
+            <field name="arch" type="xml">
+                <search string="Cari Penarikan">
+                    <field name="name"/>
+                    <field name="anggota_id"/>
+                    <field name="mitra_id"/>
+                    <filter name="f_draft" string="Draft" domain="[('state', '=', 'draft')]"/>
+                    <filter name="f_diajukan" string="Menunggu Pembayaran" domain="[('state', '=', 'diajukan')]"/>
+                    <filter name="f_dibayar" string="Dibayar" domain="[('state', '=', 'dibayar')]"/>
+                    <separator/>
+                    <filter name="f_keluar" string="Keluar dari Keanggotaan" domain="[('jenis', '=', 'keluar')]"/>
+                    <group>
+                        <filter name="g_mitra" string="Mitra" context="{'group_by': 'mitra_id'}"/>
+                        <filter name="g_state" string="Status" context="{'group_by': 'state'}"/>
+                        <filter name="g_jenis" string="Jenis" context="{'group_by': 'jenis'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_koperasi_penarikan" model="ir.actions.act_window">
+            <field name="name">Penarikan Simpanan</field>
+            <field name="res_model">koperasi.penarikan</field>
+            <field name="view_mode">list,form</field>
+            <field name="search_view_id" ref="view_koperasi_penarikan_search"/>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">Belum ada penarikan simpanan</p>
+                <p>Ajukan penarikan simpanan sukarela, atau pengembalian seluruh simpanan
+                   bagi anggota yang keluar. Operator pusat mencatat pembayarannya.</p>
+            </field>
+        </record>
+
+        <menuitem id="menu_koperasi_penarikan" name="Penarikan" parent="menu_koperasi_root"
+                  action="action_koperasi_penarikan" sequence="27"/>
+
+    </data>
+</odoo>

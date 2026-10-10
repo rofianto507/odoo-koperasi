@@ -56,6 +56,7 @@ class KoperasiTagihan(models.Model):
         index=True, ondelete='restrict')
     # tanggal mulai periode, disimpan untuk pengurutan dan perbandingan
     periode = fields.Date(related='periode_id.tanggal_mulai', store=True, index=True)
+    periode_state = fields.Selection(related='periode_id.state', string='Status Periode')
     state = fields.Selection(
         STATE_TAGIHAN, string='Status', default='draft', required=True,
         tracking=True, copy=False)
@@ -110,6 +111,9 @@ class KoperasiTagihan(models.Model):
     def create(self, vals_list):
         for vals in vals_list:
             periode = self.env['koperasi.periode'].browse(vals['periode_id'])
+            if periode.state == 'ditutup':
+                raise UserError(_(
+                    'Periode %s sudah ditutup, tagihan baru tidak dapat dibuat.', periode.name))
             mitra = self.env['koperasi.mitra'].browse(vals['mitra_id'])
             vals['name'] = 'TGH/%s/%s' % (periode.tanggal_mulai.strftime('%Y%m'), mitra.kode)
         return super().create(vals_list)
@@ -271,6 +275,14 @@ class KoperasiTagihanLine(models.Model):
         STATUS_BARIS, string='Status Bayar', default='menunggu', required=True,
         readonly=True, copy=False, index=True)
     tanggal_bayar = fields.Date('Tanggal Dibayar', readonly=True, copy=False)
+    # Periode pengakuan pembayaran: periode baris ini sendiri bila divalidasi langsung,
+    # atau periode baris pembawanya bila dibayar sebagai tunggakan. Laporan menghitung
+    # penerimaan menurut periode ini, sehingga angka periode yang sudah lewat tidak berubah.
+    periode_akui_id = fields.Many2one(
+        'koperasi.periode', string='Diakui pada Periode', readonly=True, copy=False,
+        index=True, ondelete='restrict')
+    tanggal_akui = fields.Date(
+        'Tanggal Pengakuan', related='periode_akui_id.tanggal_mulai', store=True, index=True)
     dibawa_ke_id = fields.Many2one(
         'koperasi.tagihan.line', string='Ditagih Ulang Di', readonly=True, copy=False,
         ondelete='set null', index=True,
@@ -360,12 +372,23 @@ class KoperasiTagihanLine(models.Model):
             r.tunggakan = sum(asal.mapped('total'))
             r.tunggakan_dari_ids = [fields.Command.set(asal.ids)]
 
+    @api.model
+    def _isi_pengakuan(self):
+        """Lengkapi periode pengakuan baris Dibayar yang belum memilikinya (data sebelum
+        field ini ada). Dipanggil tiap pembaruan modul; tidak mengubah yang sudah terisi."""
+        for r in self.sudo().search([('status', '=', 'dibayar'), ('periode_akui_id', '=', False)]):
+            akar = r
+            while akar.dibawa_ke_id:
+                akar = akar.dibawa_ke_id
+            r.periode_akui_id = akar.tagihan_id.periode_id
+
     def _selesaikan_tunggakan(self):
         """Baris ini dibayar: tunggakan yang dibawanya ikut lunas."""
         for r in self.sudo():
             asal = r.tunggakan_dari_ids
             if asal:
-                asal.write({'status': 'dibayar', 'tanggal_bayar': r.tanggal_bayar})
+                asal.write({'status': 'dibayar', 'tanggal_bayar': r.tanggal_bayar,
+                            'periode_akui_id': r.periode_akui_id.id})
                 asal._selesaikan_tunggakan()
 
     def _batalkan_tunggakan(self):
@@ -373,7 +396,7 @@ class KoperasiTagihanLine(models.Model):
         for r in self.sudo():
             asal = r.tunggakan_dari_ids.filtered(lambda a: a.status == 'dibayar')
             if asal:
-                asal.write({'status': 'belum', 'tanggal_bayar': False})
+                asal.write({'status': 'belum', 'tanggal_bayar': False, 'periode_akui_id': False})
                 asal._batalkan_tunggakan()
 
     # ------------------------------------------------------------------
@@ -385,6 +408,11 @@ class KoperasiTagihanLine(models.Model):
         for r in self:
             if r.tagihan_id.state not in ('terbit', 'lunas'):
                 raise UserError(_('Validasi hanya dapat dilakukan setelah tagihan Ditagihkan.'))
+            if r.tagihan_id.periode_id.state == 'ditutup':
+                raise UserError(_(
+                    'Periode %s sudah ditutup, validasi pembayarannya tidak dapat diubah. '
+                    'Tagihan yang belum dibayar ditagihkan kembali pada periode berikutnya.',
+                    r.tagihan_id.periode_id.name))
             if r.dibawa_ke_id:
                 raise UserError(_(
                     '%(anggota)s sudah ditagih ulang pada tagihan %(tagihan)s. '
@@ -394,6 +422,7 @@ class KoperasiTagihanLine(models.Model):
             r.sudo().write({
                 'status': status,
                 'tanggal_bayar': hari_ini if status == 'dibayar' else False,
+                'periode_akui_id': r.tagihan_id.periode_id.id if status == 'dibayar' else False,
             })
             if status == 'dibayar':
                 r._selesaikan_tunggakan()

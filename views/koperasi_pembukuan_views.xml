@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- ============ Jurnal ============ -->
+        <record id="view_koperasi_jurnal_list" model="ir.ui.view">
+            <field name="name">koperasi.jurnal.list</field>
+            <field name="model">koperasi.jurnal</field>
+            <field name="arch" type="xml">
+                <list string="Jurnal" decoration-muted="state == 'draft'">
+                    <field name="currency_id" column_invisible="1"/>
+                    <field name="name"/>
+                    <field name="tanggal"/>
+                    <field name="periode_id" optional="hide"/>
+                    <field name="keterangan"/>
+                    <field name="mitra_id" optional="show"/>
+                    <field name="sumber" widget="badge"
+                           decoration-info="sumber == 'manual'"
+                           decoration-muted="sumber != 'manual'"/>
+                    <field name="total_debit" string="Nilai" sum="Total"/>
+                    <field name="state" widget="badge"
+                           decoration-muted="state == 'draft'"
+                           decoration-success="state == 'posted'"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_koperasi_jurnal_form" model="ir.ui.view">
+            <field name="name">koperasi.jurnal.form</field>
+            <field name="model">koperasi.jurnal</field>
+            <field name="arch" type="xml">
+                <form string="Jurnal">
+                    <header>
+                        <button name="action_posting" type="object" string="Posting"
+                                class="btn-primary" invisible="state != 'draft'"/>
+                        <button name="action_draft" type="object" string="Kembalikan ke Draft"
+                                invisible="state != 'posted' or sumber != 'manual'"
+                                confirm="Jurnal ini akan keluar dari buku besar sampai diposting lagi. Lanjutkan?"/>
+                        <field name="state" widget="statusbar"/>
+                    </header>
+                    <sheet>
+                        <div class="alert alert-info" role="alert" invisible="sumber == 'manual'">
+                            Jurnal ini dibuat otomatis dari transaksi dan mengikuti transaksi asalnya,
+                            jadi tidak dapat diubah di sini.
+                        </div>
+                        <div class="oe_title">
+                            <h1><field name="name"/></h1>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="tanggal" readonly="state != 'draft'"/>
+                                <field name="keterangan" readonly="state != 'draft'"
+                                       placeholder="mis. Setoran modal, Biaya server bulan Oktober"/>
+                                <field name="mitra_id" readonly="state != 'draft'"
+                                       options="{'no_create': True}"/>
+                            </group>
+                            <group>
+                                <field name="sumber"/>
+                                <field name="periode_id" options="{'no_open': True}"/>
+                                <field name="pinjaman_id" invisible="not pinjaman_id"/>
+                                <field name="tagihan_id" invisible="not tagihan_id"/>
+                                <field name="penarikan_id" invisible="not penarikan_id"/>
+                                <field name="shu_id" invisible="not shu_id"/>
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="Rincian Jurnal" name="rincian">
+                                <field name="line_ids" readonly="state != 'draft'">
+                                    <list editable="bottom">
+                                        <field name="currency_id" column_invisible="1"/>
+                                        <field name="akun_id" options="{'no_create': True}"/>
+                                        <field name="keterangan" optional="show"/>
+                                        <field name="debit" sum="Total Debit"/>
+                                        <field name="kredit" sum="Total Kredit"/>
+                                    </list>
+                                </field>
+                                <p class="text-muted" invisible="state != 'draft'">
+                                    Total debit harus sama dengan total kredit sebelum jurnal diposting.
+                                    Contoh setoran modal: debit Bank, kredit Modal Penyertaan.
+                                    Contoh biaya: debit akun beban, kredit Bank.
+                                </p>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <record id="view_koperasi_jurnal_search" model="ir.ui.view">
+            <field name="name">koperasi.jurnal.search</field>
+            <field name="model">koperasi.jurnal</field>
+            <field name="arch" type="xml">
+                <search string="Cari Jurnal">
+                    <field name="name" filter_domain="['|', ('name', 'ilike', self), ('keterangan', 'ilike', self)]"/>
+                    <field name="mitra_id"/>
+                    <field name="periode_id"/>
+                    <filter name="f_manual" string="Jurnal Umum" domain="[('sumber', '=', 'manual')]"/>
+                    <filter name="f_otomatis" string="Otomatis" domain="[('sumber', '!=', 'manual')]"/>
+                    <separator/>
+                    <filter name="f_draft" string="Draft" domain="[('state', '=', 'draft')]"/>
+                    <filter name="f_posted" string="Terposting" domain="[('state', '=', 'posted')]"/>
+                    <separator/>
+                    <filter name="f_tanggal" string="Tanggal" date="tanggal"/>
+                    <group>
+                        <filter name="g_periode" string="Periode" context="{'group_by': 'periode_id'}"/>
+                        <filter name="g_sumber" string="Sumber" context="{'group_by': 'sumber'}"/>
+                        <filter name="g_mitra" string="Mitra" context="{'group_by': 'mitra_id'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_koperasi_jurnal" model="ir.actions.act_window">
+            <field name="name">Jurnal</field>
+            <field name="res_model">koperasi.jurnal</field>
+            <field name="view_mode">list,form</field>
+            <field name="search_view_id" ref="view_koperasi_jurnal_search"/>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">Belum ada jurnal</p>
+                <p>Pencairan pinjaman dan penerimaan tagihan dijurnal otomatis. Buat jurnal di sini
+                   untuk transaksi lain, misalnya setoran modal atau biaya operasional.</p>
+            </field>
+        </record>
+
+        <!-- ============ Buku besar (baris jurnal) ============ -->
+        <record id="view_koperasi_jurnal_line_list" model="ir.ui.view">
+            <field name="name">koperasi.jurnal.line.list</field>
+            <field name="model">koperasi.jurnal.line</field>
+            <field name="arch" type="xml">
+                <list string="Buku Besar" create="0" edit="0" delete="0">
+                    <field name="currency_id" column_invisible="1"/>
+                    <field name="tanggal"/>
+                    <field name="jurnal_id"/>
+                    <field name="akun_id"/>
+                    <field name="keterangan_jurnal"/>
+                    <field name="keterangan" optional="hide"/>
+                    <field name="mitra_id" optional="show"/>
+                    <field name="debit" sum="Total Debit"/>
+                    <field name="kredit" sum="Total Kredit"/>
+                    <field name="state" optional="hide"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_koperasi_jurnal_line_search" model="ir.ui.view">
+            <field name="name">koperasi.jurnal.line.search</field>
+            <field name="model">koperasi.jurnal.line</field>
+            <field name="arch" type="xml">
+                <search string="Cari Buku Besar">
+                    <field name="akun_id"/>
+                    <field name="jurnal_id"/>
+                    <field name="mitra_id"/>
+                    <field name="periode_id"/>
+                    <filter name="f_posted" string="Terposting" domain="[('state', '=', 'posted')]"/>
+                    <separator/>
+                    <filter name="f_tanggal" string="Tanggal" date="tanggal"/>
+                    <group>
+                        <filter name="g_akun" string="Akun" context="{'group_by': 'akun_id'}"/>
+                        <filter name="g_jenis" string="Jenis Akun" context="{'group_by': 'jenis_akun'}"/>
+                        <filter name="g_periode" string="Periode" context="{'group_by': 'periode_id'}"/>
+                        <filter name="g_mitra" string="Mitra" context="{'group_by': 'mitra_id'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_koperasi_jurnal_line" model="ir.actions.act_window">
+            <field name="name">Buku Besar</field>
+            <field name="res_model">koperasi.jurnal.line</field>
+            <field name="view_mode">list</field>
+            <field name="search_view_id" ref="view_koperasi_jurnal_line_search"/>
+            <field name="context">{'search_default_f_posted': 1, 'search_default_g_akun': 1}</field>
+        </record>
+
+        <!-- ============ Bagan akun ============ -->
+        <record id="view_koperasi_akun_list" model="ir.ui.view">
+            <field name="name">koperasi.akun.list</field>
+            <field name="model">koperasi.akun</field>
+            <field name="arch" type="xml">
+                <list string="Bagan Akun" editable="bottom">
+                    <field name="currency_id" column_invisible="1"/>
+                    <field name="sistem" column_invisible="1"/>
+                    <field name="kode"/>
+                    <field name="name"/>
+                    <field name="jenis" readonly="sistem"/>
+                    <field name="kas" readonly="sistem"/>
+                    <field name="arus_kas" optional="show"/>
+                    <field name="keterangan" optional="hide"/>
+                    <field name="saldo"/>
+                    <field name="active" widget="boolean_toggle" optional="hide"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_koperasi_akun_search" model="ir.ui.view">
+            <field name="name">koperasi.akun.search</field>
+            <field name="model">koperasi.akun</field>
+            <field name="arch" type="xml">
+                <search string="Cari Akun">
+                    <field name="name" filter_domain="['|', ('kode', 'ilike', self), ('name', 'ilike', self)]"/>
+                    <filter name="f_kas" string="Kas/Bank" domain="[('kas', '=', True)]"/>
+                    <filter name="f_arsip" string="Diarsipkan" domain="[('active', '=', False)]"/>
+                    <group>
+                        <filter name="g_jenis" string="Jenis" context="{'group_by': 'jenis'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_koperasi_akun" model="ir.actions.act_window">
+            <field name="name">Bagan Akun</field>
+            <field name="res_model">koperasi.akun</field>
+            <field name="view_mode">list</field>
+        </record>
+
+        <!-- ============ Menu ============ -->
+        <menuitem id="menu_koperasi_pembukuan" name="Pembukuan" parent="menu_koperasi_root"
+                  groups="koperasi.group_koperasi_operator" sequence="35"/>
+        <menuitem id="menu_koperasi_jurnal" name="Jurnal" parent="menu_koperasi_pembukuan"
+                  action="action_koperasi_jurnal" sequence="10"/>
+        <menuitem id="menu_koperasi_jurnal_line" name="Buku Besar" parent="menu_koperasi_pembukuan"
+                  action="action_koperasi_jurnal_line" sequence="20"/>
+        <menuitem id="menu_koperasi_akun" name="Bagan Akun" parent="menu_koperasi_pembukuan"
+                  action="action_koperasi_akun" sequence="30"/>
+
+    </data>
+</odoo>

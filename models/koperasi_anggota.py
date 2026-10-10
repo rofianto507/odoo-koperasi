@@ -14,6 +14,7 @@ STATE_SELECTION = [
     ('menunggu', 'Menunggu Validasi'),
     ('aktif', 'Aktif'),
     ('ditolak', 'Ditolak'),
+    ('keluar', 'Keluar'),  # hanya lewat penarikan simpanan berjenis Keluar
 ]
 
 # Bank yang umum di Indonesia untuk rekening pencairan. 'lainnya' membuka isian nama bank.
@@ -74,6 +75,9 @@ class KoperasiAnggota(models.Model):
     tanggal_bergabung = fields.Date(
         'Tanggal Bergabung', readonly=True, copy=False,
         help='Terisi otomatis saat anggota divalidasi operator.')
+    tanggal_keluar = fields.Date(
+        'Tanggal Keluar', readonly=True, copy=False,
+        help='Terisi saat pengembalian seluruh simpanan dibayar.')
 
     # Data gaji: nilai yang berlaku sekarang; tiap perubahan dicatat ke gaji_ids.
     gaji_bersih = fields.Monetary('Gaji Bersih', tracking=True)
@@ -190,16 +194,21 @@ class KoperasiAnggota(models.Model):
     @api.depends('tagihan_line_ids.status', 'tagihan_line_ids.simpok',
                  'tagihan_line_ids.simwa', 'tagihan_line_ids.simsula',
                  'tagihan_line_ids.dibawa_ke_id', 'tagihan_line_ids.total',
-                 'tagihan_line_ids.tunggakan')
+                 'tagihan_line_ids.tunggakan', 'penarikan_ids.state')
     def _compute_saldo(self):
         """Saldo = simpanan pada baris tagihan yang sudah Dibayar (komponen
-        asli baris, tanpa tunggakan; tunggakan dihitung di baris asalnya).
+        asli baris, tanpa tunggakan; tunggakan dihitung di baris asalnya)
+        dikurangi penarikan simpanan yang sudah dibayar.
         Tunggakan = baris Belum Dibayar yang belum ditagih ulang."""
         Line = self.env['koperasi.tagihan.line']
+        agregat = ['simpok:sum', 'simwa:sum', 'simsula:sum']
         data = Line._read_group(
-            [('anggota_id', 'in', self.ids), ('status', '=', 'dibayar')],
-            ['anggota_id'], ['simpok:sum', 'simwa:sum', 'simsula:sum'])
+            [('anggota_id', 'in', self.ids), ('status', '=', 'dibayar')], ['anggota_id'], agregat)
         saldo = {anggota.id: [j or 0 for j in jumlah] for anggota, *jumlah in data}
+        for anggota, *jumlah in self.env['koperasi.penarikan']._read_group(
+                [('anggota_id', 'in', self.ids), ('state', '=', 'dibayar')], ['anggota_id'], agregat):
+            masuk = saldo.setdefault(anggota.id, [0, 0, 0])
+            saldo[anggota.id] = [m - (j or 0) for m, j in zip(masuk, jumlah)]
         # Baris Belum Dibayar yang belum ditagih ulang (nilai utuh) + bagian
         # tunggakan pada baris yang sudah memuatnya tetapi belum divalidasi.
         tunggakan = {}

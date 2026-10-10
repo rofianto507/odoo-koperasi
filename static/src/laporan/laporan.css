@@ -136,3 +136,17 @@
 @media (max-width: 640px) {
     .kop-lap-kartu-row { grid-template-columns: 1fr 1fr; }
 }
+
+/* Final (semua periode laporan sudah ditutup) atau Sementara */
+.kop-lap-status {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 99px;
+    white-space: nowrap;
+    color: #b45309;
+    background: #fef3c7;
+    cursor: help;
+}
+.kop-lap-status--final { color: #166534; background: #dcfce7; }
+.kop-lap-status i { margin-right: 6px; }

@@ -20,3 +20,9 @@ access_koperasi_pinjaman_operator,koperasi.pinjaman operator,model_koperasi_pinj
 access_koperasi_pinjaman_angsuran_mitra,koperasi.pinjaman.angsuran admin mitra,model_koperasi_pinjaman_angsuran,koperasi.group_koperasi_mitra,1,0,0,0
 access_koperasi_buat_tagihan_wizard,koperasi.buat.tagihan.wizard,model_koperasi_buat_tagihan_wizard,koperasi.group_koperasi_operator,1,1,1,1
 access_koperasi_tolak_wizard,koperasi.tolak.wizard,model_koperasi_tolak_wizard,koperasi.group_koperasi_operator,1,1,1,1
+access_koperasi_akun_operator,koperasi.akun operator,model_koperasi_akun,koperasi.group_koperasi_operator,1,1,1,1
+access_koperasi_jurnal_operator,koperasi.jurnal operator,model_koperasi_jurnal,koperasi.group_koperasi_operator,1,1,1,1
+access_koperasi_jurnal_line_operator,koperasi.jurnal.line operator,model_koperasi_jurnal_line,koperasi.group_koperasi_operator,1,1,1,1
+access_koperasi_penarikan_mitra,koperasi.penarikan admin mitra,model_koperasi_penarikan,koperasi.group_koperasi_mitra,1,1,1,1
+access_koperasi_shu_operator,koperasi.shu operator,model_koperasi_shu,koperasi.group_koperasi_operator,1,1,1,1
+access_koperasi_shu_line_operator,koperasi.shu.line operator,model_koperasi_shu_line,koperasi.group_koperasi_operator,1,1,1,1

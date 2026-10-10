@@ -136,6 +136,8 @@
                         <button name="action_buka_tolak_wizard" type="object" string="Tolak"
                                 invisible="state not in ('diajukan', 'disetujui')"
                                 groups="koperasi.group_koperasi_operator"/>
+                        <button name="action_kartu_pinjaman" type="object" string="Kartu Pinjaman"
+                                icon="fa-file-pdf-o" invisible="state in ('draft', 'ditolak')"/>
                         <field name="state" widget="statusbar"
                                statusbar_visible="draft,diajukan,disetujui,berjalan,lunas"/>
                     </header>

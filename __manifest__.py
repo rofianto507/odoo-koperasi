@@ -1,6 +1,6 @@
 {
     'name': 'Koperasi',
-    'version': '19.0.2.8.0',
+    'version': '19.0.3.3.0',
     'summary': 'Manajemen koperasi simpan pinjam pegawai lintas mitra',
     'description': """
 Platform simpan pinjam koperasi pegawai. Operator pusat mengelola mitra
@@ -28,6 +28,10 @@ sebagai calon anggota koperasi.
         'wizard/koperasi_buat_tagihan_wizard_views.xml',
         'report/koperasi_laporan_report.xml',
         'views/menu.xml',
+        'views/koperasi_pembukuan_views.xml',
+        'views/koperasi_penarikan_views.xml',
+        'views/koperasi_shu_views.xml',
+        'data/koperasi_pembukuan_data.xml',
     ],
     'assets': {
         'web.assets_backend': [

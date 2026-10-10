@@ -1,3 +1,5 @@
+from markupsafe import Markup
+
 from odoo import api, fields, models, _
 from odoo.addons.base.models.ir_mail_server import MailDeliveryException
 from odoo.exceptions import AccessError, UserError
@@ -53,6 +55,13 @@ class KoperasiMitra(models.Model):
     pinjaman_pengajuan_count = fields.Integer('Pengajuan Pinjaman', compute='_compute_ringkasan')
     tagihan_count = fields.Integer('Tagihan', compute='_compute_ringkasan')
     tunggakan_total = fields.Monetary('Tunggakan', compute='_compute_ringkasan')
+    ringkasan_html = fields.Html('Ringkasan', compute='_compute_ringkasan', sanitize=False)
+
+    # Tab di form mitra (hanya dibaca; admin mitra tidak melihat tagihan Draft karena record rule)
+    tagihan_ids = fields.One2many('koperasi.tagihan', 'mitra_id', string='Daftar Tagihan', readonly=True)
+    pinjaman_aktif_ids = fields.One2many(
+        'koperasi.pinjaman', 'mitra_id', string='Pinjaman Aktif', readonly=True,
+        domain=[('state', 'in', ('diajukan', 'disetujui', 'berjalan'))])
 
     _kode_uniq = models.Constraint('UNIQUE(kode)', 'Kode mitra sudah dipakai.')
 
@@ -72,9 +81,14 @@ class KoperasiMitra(models.Model):
         ids = self.ids
         menunggu = {m.id: n for m, n in Anggota._read_group(
             [('mitra_id', 'in', ids), ('state', '=', 'menunggu')], ['mitra_id'], ['__count'])}
-        saldo = {m.id: (p or 0) + (w or 0) + (s or 0) for m, p, w, s in Line._read_group(
-            [('mitra_id', 'in', ids), ('status', '=', 'dibayar')], ['mitra_id'],
-            ['simpok:sum', 'simwa:sum', 'simsula:sum'])}
+        agregat = ['simpok:sum', 'simwa:sum', 'simsula:sum']
+        rinci = {m.id: [p or 0, w or 0, s or 0] for m, p, w, s in Line._read_group(
+            [('mitra_id', 'in', ids), ('status', '=', 'dibayar')], ['mitra_id'], agregat)}
+        for m, *tarik in self.env['koperasi.penarikan']._read_group(
+                [('mitra_id', 'in', ids), ('state', '=', 'dibayar')], ['mitra_id'], agregat):
+            masuk = rinci.setdefault(m.id, [0, 0, 0])
+            rinci[m.id] = [a - (b or 0) for a, b in zip(masuk, tarik)]
+        saldo = {m_id: sum(v) for m_id, v in rinci.items()}
         berjalan = {m.id: (n, sisa or 0) for m, n, sisa in Pinjaman._read_group(
             [('mitra_id', 'in', ids), ('state', '=', 'berjalan')], ['mitra_id'],
             ['__count', 'sisa_pokok:sum'])}
@@ -94,13 +108,65 @@ class KoperasiMitra(models.Model):
                 [('mitra_id', 'in', ids), ('status', '=', 'menunggu')],
                 ['mitra_id'], ['tunggakan:sum']):
             tunggakan[m.id] = tunggakan.get(m.id, 0) + (t or 0)
+        menunggak = {m.id: n for m, n in Line._read_group(
+            [('mitra_id', 'in', ids), ('status', '=', 'belum')], ['mitra_id'], ['anggota_id:count_distinct'])}
         for r in self:
+            r.ringkasan_html = r._kartu_ringkasan(
+                rinci.get(r.id, [0, 0, 0]), berjalan.get(r.id, (0, 0)), pengajuan.get(r.id, 0),
+                tunggakan.get(r.id, 0), menunggak.get(r.id, 0))
             r.anggota_menunggu_count = menunggu.get(r.id, 0)
             r.saldo_simpanan = saldo.get(r.id, 0)
             r.pinjaman_berjalan_count, r.pinjaman_sisa = berjalan.get(r.id, (0, 0))
             r.pinjaman_pengajuan_count = pengajuan.get(r.id, 0)
             r.tagihan_count = tagihan.get(r.id, 0)
             r.tunggakan_total = tunggakan.get(r.id, 0)
+
+    def _kolektibilitas(self, jumlah_periode=3):
+        """(persen, nama periode awal, nama periode akhir) dari beberapa tagihan terakhir yang sudah
+        ditagihkan. Sama dengan laporan: yang dibayar belakangan dihitung belum dibayar pada periodenya."""
+        self.ensure_one()
+        tagihan = self.env['koperasi.tagihan'].search(
+            [('mitra_id', '=', self.id), ('state', '!=', 'draft')], order='periode desc', limit=jumlah_periode)
+        diterima = belum = 0
+        for t, status, akui, pk, w, s, ap, aj in self.env['koperasi.tagihan.line']._read_group(
+                [('tagihan_id', 'in', tagihan.ids), ('status', '!=', 'menunggu')],
+                ['tagihan_id', 'status', 'periode_akui_id'],
+                ['simpok:sum', 'simwa:sum', 'simsula:sum', 'angsuran_pokok:sum', 'angsuran_jasa:sum']):
+            nilai = sum(v or 0 for v in (pk, w, s, ap, aj))
+            if status == 'dibayar' and akui == t.periode_id:
+                diterima += nilai
+            else:
+                belum += nilai
+        if not diterima + belum:
+            return None, '', ''
+        urut = tagihan.sorted('periode')
+        return round(diterima * 100 / (diterima + belum), 1), urut[0].periode_id.name, urut[-1].periode_id.name
+
+    def _kartu_ringkasan(self, simpanan, berjalan, pengajuan, tunggakan, menunggak):
+        self.ensure_one()
+        rp = self.currency_id.format
+        kolek, awal, akhir = self._kolektibilitas()
+        if kolek is None:
+            nilai_kolek, sub_kolek, warna_kolek = '-', _('belum ada tagihan yang divalidasi'), '#6b7280'
+        else:
+            nilai_kolek = ('%.1f' % kolek).replace('.', ',') + '%'
+            sub_kolek = _('dibayar tepat waktu, %s', awal if awal == akhir else '%s – %s' % (awal, akhir))
+            warna_kolek = '#16a34a' if kolek >= 95 else '#d97706' if kolek >= 85 else '#dc2626'
+        kartu = [
+            (_('Total Simpanan'), rp(sum(simpanan)), '#7c3aed',
+             _('pokok %(a)s · wajib %(b)s · sukarela %(c)s', a=rp(simpanan[0]), b=rp(simpanan[1]), c=rp(simpanan[2]))),
+            (_('Sisa Pinjaman'), rp(berjalan[1]), '#2563eb',
+             _('%(n)d pinjaman berjalan', n=berjalan[0]) + (_(' · %d pengajuan diproses', pengajuan) if pengajuan else '')),
+            (_('Tunggakan'), rp(tunggakan), '#dc2626' if tunggakan else '#16a34a',
+             _('%d anggota menunggak', menunggak) if tunggakan else _('tidak ada tunggakan')),
+            (_('Kolektibilitas'), nilai_kolek, warna_kolek, sub_kolek),
+        ]
+        return Markup('<div class="d-flex flex-wrap gap-2 mt-2 mb-3">%s</div>') % Markup().join(
+            Markup('<div class="flex-fill border rounded-3 px-3 py-2" style="min-width:210px;border-left:4px solid %s !important">'
+                   '<div class="text-muted text-uppercase fw-bold" style="font-size:11px;letter-spacing:.4px">%s</div>'
+                   '<div class="fs-3 fw-bold" style="color:%s">%s</div>'
+                   '<div class="text-muted small">%s</div></div>') % (warna, label, warna, nilai, sub)
+            for label, nilai, warna, sub in kartu)
 
     @api.depends('admin_user_id', 'admin_user_id.active')
     def _compute_admin_status(self):

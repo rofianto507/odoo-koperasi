@@ -40,7 +40,10 @@
                             </button>
                             <button name="action_lihat_simpanan" type="object"
                                     class="oe_stat_button" icon="fa-money">
-                                <field name="saldo_simpanan" widget="statinfo" string="Total Simpanan"/>
+                                <div class="o_field_widget o_stat_info">
+                                    <span class="o_stat_value"><field name="saldo_simpanan" widget="monetary" options="{'currency_field': 'currency_id'}"/></span>
+                                    <span class="o_stat_text">Total Simpanan</span>
+                                </div>
                             </button>
                             <button name="action_lihat_pinjaman" type="object"
                                     class="oe_stat_button" icon="fa-credit-card">
@@ -49,7 +52,10 @@
                             </button>
                             <button name="action_lihat_pinjaman" type="object"
                                     class="oe_stat_button" icon="fa-balance-scale">
-                                <field name="pinjaman_sisa" widget="statinfo" string="Sisa Pinjaman"/>
+                                <div class="o_field_widget o_stat_info">
+                                    <span class="o_stat_value"><field name="pinjaman_sisa" widget="monetary" options="{'currency_field': 'currency_id'}"/></span>
+                                    <span class="o_stat_text">Sisa Pinjaman</span>
+                                </div>
                             </button>
                             <button name="action_lihat_pinjaman_pengajuan" type="object"
                                     class="oe_stat_button text-warning" icon="fa-file-text-o"
@@ -64,7 +70,10 @@
                             <button name="action_lihat_tunggakan" type="object"
                                     class="oe_stat_button text-danger" icon="fa-exclamation-triangle"
                                     invisible="tunggakan_total == 0">
-                                <field name="tunggakan_total" widget="statinfo" string="Tunggakan"/>
+                                <div class="o_field_widget o_stat_info">
+                                    <span class="o_stat_value"><field name="tunggakan_total" widget="monetary" options="{'currency_field': 'currency_id'}"/></span>
+                                    <span class="o_stat_text">Tunggakan</span>
+                                </div>
                             </button>
                         </div>
                         <field name="currency_id" invisible="1"/>
@@ -136,6 +145,7 @@
                                 </div>
                             </group>
                         </group>
+                        <field name="ringkasan_html" nolabel="1" colspan="2" invisible="not id"/>
                         <notebook>
                             <page string="Anggota" name="anggota">
                                 <field name="anggota_ids"
@@ -144,16 +154,68 @@
                                           decoration-muted="state == 'draft'"
                                           decoration-warning="state == 'menunggu'"
                                           decoration-success="state == 'aktif'"
-                                          decoration-danger="state == 'ditolak'">
+                                          decoration-danger="state == 'ditolak'"
+                                          decoration-it="state == 'keluar'">
                                         <field name="nomor_anggota"/>
                                         <field name="name"/>
                                         <field name="nip"/>
-                                        <field name="jabatan"/>
+                                        <field name="jabatan" optional="show"/>
                                         <field name="currency_id" column_invisible="1"/>
-                                        <field name="gaji_bersih"/>
+                                        <field name="gaji_bersih" optional="show"/>
+                                        <field name="saldo_total" string="Simpanan" sum="Total"/>
+                                        <field name="pinjaman_sisa" sum="Total"/>
+                                        <field name="tunggakan_total" sum="Total"
+                                               decoration-danger="tunggakan_total &gt; 0"/>
                                         <field name="state"/>
                                     </list>
                                 </field>
+                            </page>
+                            <page string="Tagihan" name="tagihan" invisible="not id">
+                                <field name="tagihan_ids" readonly="1">
+                                    <list create="0" delete="0" limit="12">
+                                        <field name="currency_id" column_invisible="1"/>
+                                        <field name="name"/>
+                                        <field name="periode_id"/>
+                                        <field name="jumlah_anggota"/>
+                                        <field name="total" sum="Total"/>
+                                        <field name="total_dibayar" sum="Total"/>
+                                        <field name="total_belum" sum="Total"
+                                               decoration-danger="total_belum &gt; 0"/>
+                                        <field name="jumlah_menunggu" string="Belum Divalidasi" optional="show"/>
+                                        <field name="state" widget="badge"
+                                               decoration-muted="state == 'draft'"
+                                               decoration-warning="state == 'terbit'"
+                                               decoration-success="state == 'lunas'"/>
+                                    </list>
+                                </field>
+                            </page>
+                            <page string="Pinjaman" name="pinjaman" invisible="not id">
+                                <field name="pinjaman_aktif_ids" readonly="1">
+                                    <list create="0" delete="0"
+                                          decoration-warning="state in ('diajukan', 'disetujui')">
+                                        <field name="currency_id" column_invisible="1"/>
+                                        <field name="name"/>
+                                        <field name="anggota_id"/>
+                                        <field name="produk_id" optional="show"/>
+                                        <field name="pokok" sum="Total"/>
+                                        <field name="angsuran_bulan" optional="show"/>
+                                        <field name="angsuran_dibayar" string="Dibayar"/>
+                                        <field name="tenor" string="dari"/>
+                                        <field name="sisa_pokok" sum="Total"/>
+                                        <field name="kualitas" widget="badge"
+                                               decoration-success="kualitas == 'lancar'"
+                                               decoration-warning="kualitas in ('perhatian', 'kurang')"
+                                               decoration-danger="kualitas in ('diragukan', 'macet')"/>
+                                        <field name="state" widget="badge"
+                                               decoration-warning="state in ('diajukan', 'disetujui')"
+                                               decoration-info="state == 'berjalan'"/>
+                                    </list>
+                                </field>
+                                <p class="text-muted">
+                                    Pinjaman yang sedang berjalan dan yang masih diproses. Kualitas dinilai
+                                    dari angsuran tertua yang belum dibayar: Dalam Perhatian = bulan berjalan,
+                                    Kurang Lancar = 1 bulan, Diragukan = 2 bulan, Macet = 3 bulan atau lebih.
+                                </p>
                             </page>
                             <page string="Catatan" name="catatan">
                                 <field name="catatan" placeholder="Catatan internal tentang mitra ini..."/>

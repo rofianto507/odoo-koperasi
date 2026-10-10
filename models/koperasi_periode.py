@@ -17,6 +17,8 @@ BULAN_SINGKAT = {
     '7': 'JUL', '8': 'AGU', '9': 'SEP', '10': 'OKT', '11': 'NOV', '12': 'DES',
 }
 
+STATE_PERIODE = [('terbuka', 'Terbuka'), ('ditutup', 'Ditutup')]
+
 
 class KoperasiPeriode(models.Model):
     """Master periode bulanan: dipakai tagihan, berlaku mulai simsula, dst.
@@ -33,6 +35,13 @@ class KoperasiPeriode(models.Model):
         required=True, default=lambda self: fields.Date.context_today(self).year)
     tanggal_mulai = fields.Date('Tanggal Mulai', compute='_compute_rentang', store=True, index=True)
     tanggal_akhir = fields.Date('Tanggal Akhir', compute='_compute_rentang', store=True)
+    # Periode yang ditutup terkunci: tagihan dan validasi pembayarannya tidak bisa diubah
+    # lagi, sehingga angka laporannya tetap. Pembayaran susulan diakui di periode berikutnya.
+    state = fields.Selection(
+        STATE_PERIODE, string='Status', default='terbuka', required=True, readonly=True,
+        copy=False, index=True)
+    ditutup_oleh_id = fields.Many2one('res.users', string='Ditutup Oleh', readonly=True, copy=False)
+    tanggal_tutup = fields.Datetime('Ditutup Pada', readonly=True, copy=False)
 
     _bulan_tahun_uniq = models.Constraint(
         'UNIQUE(bulan, tahun)', 'Periode untuk bulan dan tahun tersebut sudah ada.')
@@ -65,6 +74,75 @@ class KoperasiPeriode(models.Model):
             if jumlah:
                 pemakai.append('%d %s' % (jumlah, label))
         return pemakai
+
+    def write(self, vals):
+        if {'bulan', 'tahun'} & vals.keys() and any(r.state == 'ditutup' for r in self):
+            raise UserError(_('Periode yang sudah ditutup tidak dapat diubah.'))
+        if 'state' in vals and not self.env.context.get('koperasi_tutup_periode'):
+            raise UserError(_('Status periode hanya berubah lewat tombol Tutup Periode / Buka Kembali.'))
+        return super().write(vals)
+
+    # ------------------------------------------------------------------
+    # Tutup periode
+    # ------------------------------------------------------------------
+    def _cek_operator(self):
+        if not self.env.user.has_group('koperasi.group_koperasi_operator'):
+            raise UserError(_('Hanya operator pusat yang dapat menutup atau membuka periode.'))
+
+    def action_tutup(self):
+        """Tutup periode ini beserta semua periode sebelumnya yang masih terbuka.
+
+        Syarat: periodenya sudah berakhir dan semua tagihannya Selesai (setiap anggota
+        sudah divalidasi Dibayar atau Belum Dibayar)."""
+        self._cek_operator()
+        terbuka = self.filtered(lambda p: p.state == 'terbuka')
+        if not terbuka:
+            return True
+        sasaran = self.search([
+            ('state', '=', 'terbuka'), ('tanggal_mulai', '<=', max(terbuka.mapped('tanggal_mulai')))],
+            order='tanggal_mulai')
+        hari_ini = fields.Date.context_today(self)
+        berjalan = sasaran.filtered(lambda p: p.tanggal_akhir >= hari_ini)
+        if berjalan:
+            raise UserError(_(
+                'Periode %s belum berakhir. Periode baru dapat ditutup setelah bulannya lewat.',
+                berjalan[0].name))
+        # sudo: tagihan Draft tidak terlihat semua pengguna, tetapi tetap menghalangi penutupan
+        Tagihan = self.env['koperasi.tagihan'].sudo()
+        belum = Tagihan.search(
+            [('periode_id', 'in', sasaran.ids), ('state', '!=', 'lunas')], order='periode, id')
+        if belum:
+            label = dict(Tagihan._fields['state'].selection)
+            daftar = '\n'.join('- %s (%s)' % (t.name, label[t.state]) for t in belum[:10])
+            if len(belum) > 10:
+                daftar += '\n' + _('... dan %d tagihan lain', len(belum) - 10)
+            raise UserError(_(
+                'Periode belum dapat ditutup karena masih ada tagihan yang belum Selesai. '
+                'Validasi pembayaran semua anggotanya (Dibayar / Belum Dibayar), atau hapus '
+                'tagihan yang masih Draft:\n%s', daftar))
+        sasaran.with_context(koperasi_tutup_periode=True).write({
+            'state': 'ditutup',
+            'ditutup_oleh_id': self.env.user.id,
+            'tanggal_tutup': fields.Datetime.now(),
+        })
+        return True
+
+    def action_buka(self):
+        """Buka kembali periode yang terakhir ditutup (untuk membetulkan kekeliruan)."""
+        self._cek_operator()
+        self.ensure_one()
+        if self.state != 'ditutup':
+            return True
+        kemudian = self.search(
+            [('state', '=', 'ditutup'), ('tanggal_mulai', '>', self.tanggal_mulai)],
+            order='tanggal_mulai desc', limit=1)
+        if kemudian:
+            raise UserError(_(
+                'Periode %(ini)s tidak dapat dibuka karena %(nanti)s masih ditutup. '
+                'Buka dari periode yang paling akhir.', ini=self.name, nanti=kemudian.name))
+        self.with_context(koperasi_tutup_periode=True).write({
+            'state': 'terbuka', 'ditutup_oleh_id': False, 'tanggal_tutup': False})
+        return True
 
     def unlink(self):
         pemakai = self._dipakai_oleh()

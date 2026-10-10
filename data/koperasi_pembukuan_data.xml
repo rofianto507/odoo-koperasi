@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Nomor jurnal tanpa celah -->
+        <record id="seq_koperasi_jurnal" model="ir.sequence">
+            <field name="name">Nomor Jurnal Koperasi</field>
+            <field name="code">koperasi.jurnal</field>
+            <field name="prefix">JU/%(year)s/</field>
+            <field name="padding">5</field>
+            <field name="implementation">no_gap</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+        <!-- ============ Bagan akun bawaan ============ -->
+        <!-- Aset -->
+        <record id="akun_kas" model="koperasi.akun">
+            <field name="kode">1101</field>
+            <field name="name">Kas</field>
+            <field name="jenis">aset</field>
+            <field name="kas" eval="True"/>
+        </record>
+        <record id="akun_bank" model="koperasi.akun">
+            <field name="kode">1102</field>
+            <field name="name">Bank</field>
+            <field name="jenis">aset</field>
+            <field name="kas" eval="True"/>
+            <field name="sistem" eval="True"/>
+            <field name="keterangan">Dipakai semua jurnal otomatis (pencairan dan penerimaan tagihan).</field>
+        </record>
+        <record id="akun_piutang" model="koperasi.akun">
+            <field name="kode">1201</field>
+            <field name="name">Piutang Pinjaman Anggota</field>
+            <field name="jenis">aset</field>
+            <field name="arus_kas">operasi</field>
+            <field name="sistem" eval="True"/>
+        </record>
+        <record id="akun_aset_tetap" model="koperasi.akun">
+            <field name="kode">1301</field>
+            <field name="name">Aset Tetap dan Inventaris</field>
+            <field name="jenis">aset</field>
+        </record>
+
+        <!-- Kewajiban -->
+        <record id="akun_simsula" model="koperasi.akun">
+            <field name="kode">2101</field>
+            <field name="name">Simpanan Sukarela Anggota</field>
+            <field name="jenis">kewajiban</field>
+            <field name="sistem" eval="True"/>
+        </record>
+        <record id="akun_utang" model="koperasi.akun">
+            <field name="kode">2201</field>
+            <field name="name">Utang kepada Pihak Ketiga</field>
+            <field name="jenis">kewajiban</field>
+        </record>
+
+        <record id="akun_shu_anggota" model="koperasi.akun">
+            <field name="kode">2301</field>
+            <field name="name">SHU Bagian Anggota</field>
+            <field name="jenis">kewajiban</field>
+            <field name="sistem" eval="True"/>
+            <field name="keterangan">Jasa modal dan jasa usaha yang sudah ditetapkan tetapi belum dibayarkan.</field>
+        </record>
+        <record id="akun_dana_pengurus" model="koperasi.akun">
+            <field name="kode">2302</field>
+            <field name="name">Dana Pengurus dan Karyawan</field>
+            <field name="jenis">kewajiban</field>
+            <field name="sistem" eval="True"/>
+        </record>
+        <record id="akun_dana_pendidikan" model="koperasi.akun">
+            <field name="kode">2303</field>
+            <field name="name">Dana Pendidikan</field>
+            <field name="jenis">kewajiban</field>
+            <field name="sistem" eval="True"/>
+        </record>
+        <record id="akun_dana_sosial" model="koperasi.akun">
+            <field name="kode">2304</field>
+            <field name="name">Dana Sosial</field>
+            <field name="jenis">kewajiban</field>
+            <field name="sistem" eval="True"/>
+        </record>
+
+        <!-- Ekuitas -->
+        <record id="akun_simpok" model="koperasi.akun">
+            <field name="kode">3101</field>
+            <field name="name">Simpanan Pokok</field>
+            <field name="jenis">ekuitas</field>
+            <field name="sistem" eval="True"/>
+        </record>
+        <record id="akun_simwa" model="koperasi.akun">
+            <field name="kode">3102</field>
+            <field name="name">Simpanan Wajib</field>
+            <field name="jenis">ekuitas</field>
+            <field name="sistem" eval="True"/>
+        </record>
+        <record id="akun_modal" model="koperasi.akun">
+            <field name="kode">3201</field>
+            <field name="name">Modal Penyertaan</field>
+            <field name="jenis">ekuitas</field>
+            <field name="keterangan">Dana dari pengelola atau pihak lain untuk disalurkan sebagai pinjaman.</field>
+        </record>
+
+        <record id="akun_cadangan" model="koperasi.akun">
+            <field name="kode">3301</field>
+            <field name="name">Dana Cadangan</field>
+            <field name="jenis">ekuitas</field>
+            <field name="sistem" eval="True"/>
+            <field name="keterangan">Bagian SHU yang ditahan; rugi tahun buku juga dibebankan ke sini.</field>
+        </record>
+
+        <!-- Pendapatan -->
+        <record id="akun_jasa" model="koperasi.akun">
+            <field name="kode">4101</field>
+            <field name="name">Pendapatan Jasa Pinjaman</field>
+            <field name="jenis">pendapatan</field>
+            <field name="sistem" eval="True"/>
+        </record>
+        <record id="akun_admin" model="koperasi.akun">
+            <field name="kode">4102</field>
+            <field name="name">Pendapatan Biaya Administrasi</field>
+            <field name="jenis">pendapatan</field>
+            <field name="sistem" eval="True"/>
+        </record>
+        <record id="akun_pendapatan_lain" model="koperasi.akun">
+            <field name="kode">4901</field>
+            <field name="name">Pendapatan Lain-lain</field>
+            <field name="jenis">pendapatan</field>
+        </record>
+
+        <!-- Beban -->
+        <record id="akun_beban_gaji" model="koperasi.akun">
+            <field name="kode">5101</field>
+            <field name="name">Beban Gaji dan Honor</field>
+            <field name="jenis">beban</field>
+        </record>
+        <record id="akun_beban_operasional" model="koperasi.akun">
+            <field name="kode">5102</field>
+            <field name="name">Beban Operasional</field>
+            <field name="jenis">beban</field>
+        </record>
+        <record id="akun_beban_umum" model="koperasi.akun">
+            <field name="kode">5103</field>
+            <field name="name">Beban Administrasi dan Umum</field>
+            <field name="jenis">beban</field>
+        </record>
+        <record id="akun_beban_lain" model="koperasi.akun">
+            <field name="kode">5901</field>
+            <field name="name">Beban Lain-lain</field>
+            <field name="jenis">beban</field>
+        </record>
+    </data>
+
+    <data>
+        <!-- Tiap pembaruan: lengkapi jurnal otomatis untuk transaksi yang belum berjurnal -->
+        <function model="koperasi.jurnal" name="_buat_jurnal_lama"/>
+    </data>
+</odoo>

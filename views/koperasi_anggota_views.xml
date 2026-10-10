@@ -10,7 +10,8 @@
                       decoration-muted="state == 'draft'"
                       decoration-warning="state == 'menunggu'"
                       decoration-success="state == 'aktif'"
-                      decoration-danger="state == 'ditolak'">
+                      decoration-danger="state == 'ditolak'"
+                      decoration-it="state == 'keluar'">
                     <field name="avatar_128" widget="image"
                            options="{'size': [24, 24], 'img_class': 'o_avatar rounded'}"
                            width="30" nolabel="1"/>
@@ -47,8 +48,10 @@
                         <button name="action_kembali_draft" type="object" string="Kembalikan ke Draft"
                                 invisible="state not in ('aktif', 'ditolak')"
                                 groups="koperasi.group_koperasi_operator"/>
+                        <button name="action_lihat_penarikan" type="object" string="Penarikan Simpanan"
+                                icon="fa-sign-out" invisible="state not in ('aktif', 'keluar')"/>
                         <button name="action_buku_simpanan" type="object" string="Buku Simpanan"
-                                icon="fa-file-pdf-o" invisible="state != 'aktif'"/>
+                                icon="fa-file-pdf-o" invisible="state not in ('aktif', 'keluar')"/>
                         <field name="state" widget="statusbar"
                                statusbar_visible="draft,menunggu,aktif"/>
                     </header>
@@ -56,23 +59,38 @@
                         <div class="oe_button_box" name="button_box" invisible="not id">
                             <button name="action_lihat_tagihan" type="object"
                                     class="oe_stat_button" icon="fa-bank">
-                                <field name="saldo_simpok" widget="statinfo" string="Simpanan Pokok"/>
+                                <div class="o_field_widget o_stat_info">
+                                    <span class="o_stat_value"><field name="saldo_simpok" widget="monetary" options="{'currency_field': 'currency_id'}"/></span>
+                                    <span class="o_stat_text">Simpanan Pokok</span>
+                                </div>
                             </button>
                             <button name="action_lihat_tagihan" type="object"
                                     class="oe_stat_button" icon="fa-calendar-check-o">
-                                <field name="saldo_simwa" widget="statinfo" string="Simpanan Wajib"/>
+                                <div class="o_field_widget o_stat_info">
+                                    <span class="o_stat_value"><field name="saldo_simwa" widget="monetary" options="{'currency_field': 'currency_id'}"/></span>
+                                    <span class="o_stat_text">Simpanan Wajib</span>
+                                </div>
                             </button>
                             <button name="action_lihat_tagihan" type="object"
                                     class="oe_stat_button" icon="fa-plus-circle">
-                                <field name="saldo_simsula" widget="statinfo" string="Simpanan Sukarela"/>
+                                <div class="o_field_widget o_stat_info">
+                                    <span class="o_stat_value"><field name="saldo_simsula" widget="monetary" options="{'currency_field': 'currency_id'}"/></span>
+                                    <span class="o_stat_text">Simpanan Sukarela</span>
+                                </div>
                             </button>
                             <button name="action_lihat_tagihan" type="object"
                                     class="oe_stat_button" icon="fa-money">
-                                <field name="saldo_total" widget="statinfo" string="Total Simpanan"/>
+                                <div class="o_field_widget o_stat_info">
+                                    <span class="o_stat_value"><field name="saldo_total" widget="monetary" options="{'currency_field': 'currency_id'}"/></span>
+                                    <span class="o_stat_text">Total Simpanan</span>
+                                </div>
                             </button>
                             <button name="action_lihat_pinjaman" type="object"
                                     class="oe_stat_button" icon="fa-credit-card">
-                                <field name="pinjaman_sisa" widget="statinfo" string="Sisa Pinjaman"/>
+                                <div class="o_field_widget o_stat_info">
+                                    <span class="o_stat_value"><field name="pinjaman_sisa" widget="monetary" options="{'currency_field': 'currency_id'}"/></span>
+                                    <span class="o_stat_text">Sisa Pinjaman</span>
+                                </div>
                             </button>
                             <button name="action_lihat_pinjaman" type="object"
                                     class="oe_stat_button" icon="fa-list-ol">
@@ -81,7 +99,10 @@
                             <button name="action_lihat_tagihan" type="object"
                                     class="oe_stat_button text-danger" icon="fa-exclamation-triangle"
                                     invisible="tunggakan_total == 0">
-                                <field name="tunggakan_total" widget="statinfo" string="Tunggakan"/>
+                                <div class="o_field_widget o_stat_info">
+                                    <span class="o_stat_value"><field name="tunggakan_total" widget="monetary" options="{'currency_field': 'currency_id'}"/></span>
+                                    <span class="o_stat_text">Tunggakan</span>
+                                </div>
                             </button>
                         </div>
                         <widget name="web_ribbon" title="Diarsipkan" bg_color="text-bg-danger"
@@ -164,6 +185,7 @@
                                 <field name="status_pegawai"/>
                                 <field name="tanggal_masuk_kerja"/>
                                 <field name="tanggal_bergabung"/>
+                                <field name="tanggal_keluar" invisible="not tanggal_keluar"/>
                             </group>
                             <group string="Data Gaji" name="gaji">
                                 <field name="gaji_bersih"/>
@@ -261,6 +283,65 @@
             </field>
         </record>
 
+        <!-- Kartu ringkas: identitas, mitra, simpanan, dan pinjaman/tunggakan bila ada -->
+        <record id="view_koperasi_anggota_kanban" model="ir.ui.view">
+            <field name="name">koperasi.anggota.kanban</field>
+            <field name="model">koperasi.anggota</field>
+            <field name="arch" type="xml">
+                <kanban>
+                    <field name="currency_id"/>
+                    <field name="active"/>
+                    <templates>
+                        <t t-name="card" class="flex-row">
+                            <widget name="web_ribbon" title="Diarsipkan" bg_color="text-bg-danger" invisible="active"/>
+                            <aside class="o_kanban_aside_full">
+                                <field name="avatar_128" widget="image" class="w-100 h-auto m-0"
+                                       options="{'img_class': 'object-fit-contain w-100 h-100'}" alt="Foto anggota"/>
+                            </aside>
+                            <main class="ps-2">
+                                <div class="d-flex justify-content-between align-items-start gap-2">
+                                    <field name="name" class="fw-bold fs-5 text-truncate"/>
+                                    <field name="state" widget="badge"
+                                           decoration-muted="state in ('draft', 'keluar')"
+                                           decoration-warning="state == 'menunggu'"
+                                           decoration-success="state == 'aktif'"
+                                           decoration-danger="state == 'ditolak'"/>
+                                </div>
+                                <div class="text-muted">
+                                    <field name="nomor_anggota"/>
+                                    <span t-if="!record.nomor_anggota.raw_value">Belum bernomor</span>
+                                </div>
+                                <div class="text-truncate">
+                                    <i class="fa fa-fw me-1 fa-building-o text-primary" title="Mitra"/>
+                                    <field name="mitra_id"/>
+                                </div>
+                                <div t-if="record.jabatan.raw_value" class="text-truncate">
+                                    <i class="fa fa-fw me-1 fa-suitcase text-primary" title="Jabatan"/>
+                                    <field name="jabatan"/>
+                                </div>
+                                <footer class="pt-1 mt-auto">
+                                    <div class="d-flex flex-wrap gap-3">
+                                        <span title="Total simpanan">
+                                            <i class="fa fa-fw fa-money text-success"/>
+                                            <field name="saldo_total" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                                        </span>
+                                        <span t-if="record.pinjaman_sisa.raw_value" title="Sisa pinjaman">
+                                            <i class="fa fa-fw fa-credit-card text-info"/>
+                                            <field name="pinjaman_sisa" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                                        </span>
+                                        <span t-if="record.tunggakan_total.raw_value" class="text-danger" title="Tunggakan">
+                                            <i class="fa fa-fw fa-exclamation-triangle"/>
+                                            <field name="tunggakan_total" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                                        </span>
+                                    </div>
+                                </footer>
+                            </main>
+                        </t>
+                    </templates>
+                </kanban>
+            </field>
+        </record>
+
         <record id="view_koperasi_anggota_search" model="ir.ui.view">
             <field name="name">koperasi.anggota.search</field>
             <field name="model">koperasi.anggota</field>
@@ -275,6 +356,7 @@
                     <filter name="f_menunggu" string="Menunggu Validasi" domain="[('state', '=', 'menunggu')]"/>
                     <filter name="f_aktif" string="Aktif" domain="[('state', '=', 'aktif')]"/>
                     <filter name="f_ditolak" string="Ditolak" domain="[('state', '=', 'ditolak')]"/>
+                    <filter name="f_keluar" string="Keluar" domain="[('state', '=', 'keluar')]"/>
                     <filter name="arsip" string="Diarsipkan" domain="[('active', '=', False)]"/>
                     <group>
                         <filter name="g_mitra" string="Mitra" context="{'group_by': 'mitra_id'}"/>
@@ -287,7 +369,7 @@
         <record id="action_koperasi_anggota" model="ir.actions.act_window">
             <field name="name">Anggota</field>
             <field name="res_model">koperasi.anggota</field>
-            <field name="view_mode">list,form</field>
+            <field name="view_mode">kanban,list,form</field>
             <field name="search_view_id" ref="view_koperasi_anggota_search"/>
         </record>
 

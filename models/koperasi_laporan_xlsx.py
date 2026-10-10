@@ -12,10 +12,12 @@ ABU = '#F3F4F6'
 def _warna_status(teks):
     """Warna lencana status dari teks label (Belum Dibayar dicek lebih dulu)."""
     t = (teks or '').lower()
-    if t.startswith('belum') or t in ('ditolak',):
+    if t.startswith('belum') or t in ('ditolak', 'macet', 'diragukan'):
         return '#FEE2E2', '#991B1B'
-    if t in ('dibayar', 'lunas', 'selesai'):
+    if t in ('dibayar', 'lunas', 'selesai', 'lancar'):
         return '#D1FAE5', '#065F46'
+    if t in ('kurang lancar', 'dalam perhatian'):
+        return '#FEF3C7', '#92400E'
     if t in ('berjalan', 'ditagihkan'):
         return '#DBEAFE', '#1D4ED8'
     return ABU, '#4B5563'
@@ -26,8 +28,8 @@ class KoperasiLaporanXlsx(models.AbstractModel):
 
     @api.model
     def nama_file(self, laporan, ekstensi):
-        aman = ''.join(c if c.isalnum() or c in ' -_' else '-' for c in
-                       '%s %s' % (laporan['judul'], laporan['periode_label']))
+        dasar = laporan.get('nama_berkas') or '%s %s' % (laporan['judul'], laporan['periode_label'])
+        aman = ''.join(c if c.isalnum() or c in ' -_' else '-' for c in dasar)
         return '%s.%s' % (' '.join(aman.split()), ekstensi)
 
     @api.model
@@ -68,6 +70,8 @@ class KoperasiLaporanXlsx(models.AbstractModel):
         r += 2
         meta = [('Mitra', laporan['mitra_label']), ('Periode', laporan['periode_label']),
                 ('Dibuat', '%s oleh %s' % (laporan['dibuat'], laporan['oleh']))]
+        if laporan.get('status_periode'):
+            meta.insert(2, ('Status', '%(label)s (%(keterangan)s)' % laporan['status_periode']))
         for k, v in laporan.get('identitas') or []:
             meta.insert(0, (k, v))
         for k, v in meta:

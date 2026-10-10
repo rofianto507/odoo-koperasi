@@ -14,6 +14,9 @@
             <field name="tenor_max">12</field>
         </record>
 
+        <!-- Saat instalasi: rupiah ditampilkan tanpa desimal -->
+        <function model="koperasi.pengaturan" name="_rupiah_tanpa_desimal"/>
+
         <!-- Saat instalasi: sediakan periode 12 bulan ke depan -->
         <function model="koperasi.periode" name="_pastikan_ke_depan"/>
 
@@ -28,5 +31,10 @@
             <field name="interval_type">months</field>
             <field name="nextcall" eval="(DateTime.now() + relativedelta(months=1, day=1, hour=0, minute=30, second=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
         </record>
+    </data>
+
+    <data>
+        <!-- Tiap pembaruan: lengkapi periode pengakuan baris Dibayar yang belum memilikinya -->
+        <function model="koperasi.tagihan.line" name="_isi_pengakuan"/>
     </data>
 </odoo>

@@ -20,6 +20,9 @@ class KoperasiDashboard(models.AbstractModel):
     Filter periode hanya berlaku untuk angka ALIRAN (tagihan, simpanan yang
     diterima, pinjaman yang dicairkan, pendapatan). Angka POSISI (anggota,
     saldo simpanan, sisa pinjaman, tunggakan, antrean) selalu keadaan saat ini.
+
+    Penerimaan dihitung menurut periode pengakuan baris tagihan (`periode_akui_id`),
+    sama dengan laporan: tunggakan yang dibayar belakangan masuk ke periode saat dibayar.
     """
     _name = 'koperasi.dashboard'
     _description = 'Data Dashboard Koperasi'
@@ -43,7 +46,9 @@ class KoperasiDashboard(models.AbstractModel):
             p = sekarang
 
         baris = self._baris_tagihan(dm)
+        # ditagihkan pada periode terpilih / diterima pada periode terpilih
         baris_p = [b for b in baris if b['periode'] == p] if p else baris
+        terima_p = [b for b in baris if b['status'] == 'dibayar' and (not p or b['akui'] == p)]
         # Pilihan periode: sampai bulan berjalan, atau sampai periode tagihan terakhir bila lebih jauh
         batas = max([sekarang.tanggal_mulai] + [b['periode'].tanggal_mulai for b in baris])
         pilihan = Periode.search(
@@ -55,10 +60,10 @@ class KoperasiDashboard(models.AbstractModel):
             'periode_list': [{'id': x.id, 'name': x.name} for x in pilihan | p],
             'periode': {'id': p.id or False, 'label': p.name or 'Semua Periode'},
             'simbol': self.env.company.currency_id.symbol or 'Rp',
-            'ringkasan': self._ringkasan(mitra, dm, baris, baris_p, p),
+            'ringkasan': self._ringkasan(mitra, dm, baris, terima_p, p),
             'tren': self._tren(baris, p),
             'per_mitra': self._per_mitra(mitra),
-            'simpanan': self._simpanan(dm, baris_p, p),
+            'simpanan': self._simpanan(dm, terima_p, p),
             'pinjaman': self._pinjaman(dm, p),
             'tagihan': self._tagihan(dm, baris_p, p),
         }
@@ -90,12 +95,14 @@ class KoperasiDashboard(models.AbstractModel):
         Line = self.env['koperasi.tagihan.line']
         data = Line._read_group(
             dm + [('tagihan_id.state', '!=', 'draft')],
-            ['tagihan_id', 'status'],
+            ['tagihan_id', 'status', 'periode_akui_id'],
             ['%s:sum' % k for k in KOMPONEN] + ['tunggakan:sum', '__count'])
         hasil = []
-        for tagihan, status, *nilai in data:
+        for tagihan, status, akui, *nilai in data:
             komponen = dict(zip(KOMPONEN + ('tunggakan', 'jumlah'), [v or 0 for v in nilai]))
-            komponen.update(tagihan=tagihan, periode=tagihan.periode_id, status=status)
+            # tepat: dibayar pada periode tagihannya sendiri (bukan pelunasan tunggakan)
+            komponen.update(tagihan=tagihan, periode=tagihan.periode_id, status=status, akui=akui,
+                            tepat=status == 'dibayar' and akui == tagihan.periode_id)
             komponen['simpanan'] = komponen['simpok'] + komponen['simwa'] + komponen['simsula']
             komponen['angsuran'] = komponen['angsuran_pokok'] + komponen['angsuran_jasa']
             komponen['asli'] = komponen['simpanan'] + komponen['angsuran']
@@ -116,23 +123,30 @@ class KoperasiDashboard(models.AbstractModel):
         """12 periode yang berakhir di periode terpilih (atau 12 terakhir):
         ditagihkan vs diterima, dipisah simpanan dan angsuran."""
         per = {}
-        for b in baris:
-            periode = b['periode']
+
+        def titik(periode):
             if p and periode.tanggal_mulai > p.tanggal_mulai:
-                continue
-            t = per.setdefault(periode, {
+                return None
+            return per.setdefault(periode, {
                 'periode': periode.name, 'urut': periode.tanggal_mulai,
                 'simpanan': 0, 'angsuran': 0, 'ditagihkan': 0, 'diterima': 0, 'belum': 0,
                 'simpok': 0, 'simwa': 0, 'simsula': 0})
-            t['simpanan'] += b['simpanan']
-            t['angsuran'] += b['angsuran']
-            t['ditagihkan'] += b['asli']
-            if b['status'] == 'dibayar':
+
+        for b in baris:
+            t = titik(b['periode'])
+            if t:
+                t['simpanan'] += b['simpanan']
+                t['angsuran'] += b['angsuran']
+                t['ditagihkan'] += b['asli']
+                # yang dibayar belakangan tetap belum dibayar pada periode tagihannya
+                if b['status'] == 'belum' or (b['status'] == 'dibayar' and not b['tepat']):
+                    t['belum'] += b['asli']
+            # penerimaan dicatat pada periode pengakuannya
+            t = titik(b['akui']) if b['status'] == 'dibayar' else None
+            if t:
                 t['diterima'] += b['asli']
                 for k in ('simpok', 'simwa', 'simsula'):
                     t[k] += b[k]
-            elif b['status'] == 'belum':
-                t['belum'] += b['asli']
         urut = sorted(per.values(), key=lambda t: t['urut'])[-JUMLAH_PERIODE:]
         for t in urut:
             t.pop('urut')
@@ -148,7 +162,7 @@ class KoperasiDashboard(models.AbstractModel):
             domain += [('tanggal_cair', '>=', p.tanggal_mulai), ('tanggal_cair', '<=', p.tanggal_akhir)]
         return domain
 
-    def _ringkasan(self, mitra, dm, baris, baris_p, p):
+    def _ringkasan(self, mitra, dm, baris, terima_p, p):
         Anggota = self.env['koperasi.anggota']
         Pinjaman = self.env['koperasi.pinjaman']
         Tagihan = self.env['koperasi.tagihan']
@@ -157,6 +171,11 @@ class KoperasiDashboard(models.AbstractModel):
             dm, ['state'], ['__count', 'sisa_pokok:sum'])}
         saldo = {k: sum(b[k] for b in baris if b['status'] == 'dibayar')
                  for k in ('simpok', 'simwa', 'simsula')}
+        # dikurangi penarikan simpanan yang sudah dibayar
+        ditarik = self.env['koperasi.penarikan']._read_group(
+            dm + [('state', '=', 'dibayar')], [], ['simpok:sum', 'simwa:sum', 'simsula:sum'])[0]
+        for k, t in zip(('simpok', 'simwa', 'simsula'), ditarik):
+            saldo[k] -= t or 0
         cair = Pinjaman._read_group(self._domain_cair(dm, p), [], ['pokok:sum'])[0][0]
         return {
             # Posisi saat ini
@@ -171,7 +190,7 @@ class KoperasiDashboard(models.AbstractModel):
             'pinjaman_sisa': pinjaman.get('berjalan', (0, 0))[1],
             'tunggakan': self._tunggakan(dm),
             # Aliran pada periode terpilih
-            'simpanan_diterima': sum(b['simpanan'] for b in baris_p if b['status'] == 'dibayar'),
+            'simpanan_diterima': sum(b['simpanan'] for b in terima_p),
             'pinjaman_cair': cair or 0,
             # Antrean pekerjaan operator / admin mitra
             'anggota_draft': anggota.get('draft', 0),
@@ -194,12 +213,12 @@ class KoperasiDashboard(models.AbstractModel):
             'tunggakan': m.tunggakan_total,
         } for m in mitra.sorted(lambda m: -m.saldo_simpanan)]
 
-    def _simpanan(self, dm, baris_p, p):
+    def _simpanan(self, dm, terima_p, p):
         """Simpanan yang diterima (dibayar) pada periode terpilih, atau seluruh saldo."""
         Line = self.env['koperasi.tagihan.line']
         dibayar = dm + [('status', '=', 'dibayar')]
         if p:
-            dibayar.append(('tagihan_id.periode_id', '=', p.id))
+            dibayar.append(('periode_akui_id', '=', p.id))
         agregat = ['simpok:sum', 'simwa:sum', 'simsula:sum']
         per_mitra = [{
             'id': m.id, 'name': m.name,
@@ -210,8 +229,7 @@ class KoperasiDashboard(models.AbstractModel):
             'id': a.id, 'name': a.name, 'mitra': a.mitra_id.name, 'nomor': a.nomor_anggota or '',
             'simsula': s or 0, 'total': (pk or 0) + (w or 0) + (s or 0),
         } for a, pk, w, s in Line._read_group(dibayar, ['anggota_id'], agregat)]
-        jenis = {k: sum(b[k] for b in baris_p if b['status'] == 'dibayar')
-                 for k in ('simpok', 'simwa', 'simsula')}
+        jenis = {k: sum(b[k] for b in terima_p) for k in ('simpok', 'simwa', 'simsula')}
         Anggota = self.env['koperasi.anggota']
         ikut = Anggota.search_count(dm + [('state', '=', 'aktif'), ('simsula', '>', 0)])
         komitmen = Anggota._read_group(dm + [('state', '=', 'aktif')], [], ['simsula:sum'])[0][0]
@@ -238,7 +256,7 @@ class KoperasiDashboard(models.AbstractModel):
             self._domain_cair(dm, p), [], ['pokok:sum', 'biaya_admin:sum', '__count'])[0]
         dom_angsuran = [('pinjaman_id.mitra_id', 'in', dm[0][2]), ('status', '=', 'dibayar')]
         if p:
-            dom_angsuran.append(('periode_id', '=', p.id))
+            dom_angsuran.append(('periode_akui_id', '=', p.id))
         jasa, pokok_kembali = Angsuran._read_group(dom_angsuran, [], ['jasa:sum', 'pokok:sum'])[0]
         dom_lunas = dm + [('state', '=', 'lunas')]
         if p:
@@ -287,7 +305,13 @@ class KoperasiDashboard(models.AbstractModel):
         Tagihan = self.env['koperasi.tagihan']
         Line = self.env['koperasi.tagihan.line']
         label = dict(STATE_TAGIHAN)
-        jumlah = {s: sum(b['asli'] for b in baris_p if b['status'] == s)
+        # Satu periode: keadaan pada periode itu (yang dibayar belakangan dihitung belum dibayar).
+        # Semua periode: status saat ini.
+        def kelompok(b):
+            if p and b['status'] == 'dibayar' and not b['tepat']:
+                return 'belum'
+            return b['status']
+        jumlah = {s: sum(b['asli'] for b in baris_p if kelompok(b) == s)
                   for s in ('dibayar', 'belum', 'menunggu')}
         tervalidasi = jumlah['dibayar'] + jumlah['belum']
         menunggak = {}

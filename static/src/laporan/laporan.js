@@ -10,8 +10,9 @@ const angka1 = new Intl.NumberFormat("id-ID", { minimumFractionDigits: 1, maximu
 /** Warna lencana dari teks status (yang diawali "Belum" dicek lebih dulu). */
 function kelasStatusTeks(teks) {
     const t = (teks || "").toLowerCase();
-    if (t.startsWith("belum") || t === "ditolak") return "merah";
-    if (t === "dibayar" || t === "lunas" || t === "selesai") return "hijau";
+    if (t.startsWith("belum") || ["ditolak", "macet", "diragukan"].includes(t)) return "merah";
+    if (["dibayar", "lunas", "selesai", "lancar"].includes(t)) return "hijau";
+    if (["kurang lancar", "dalam perhatian"].includes(t)) return "jingga";
     if (t === "berjalan" || t === "ditagihkan") return "biru";
     return "abu";
 }
@@ -126,6 +127,11 @@ export class KoperasiLaporan extends Component {
         return this.state.opsi.jenis.find((j) => j.id === this.state.jenis);
     }
 
+    /** Jenis laporan pada satu bagian sidebar ("Laporan" atau "Pembukuan"). */
+    jenisKelompok(kelompok) {
+        return this.state.opsi.jenis.filter((j) => j.kelompok === kelompok);
+    }
+
     // ── Unduhan ─────────────────────────────────────────────────────────────
 
     unduh(format) {
@@ -174,7 +180,24 @@ export class KoperasiLaporan extends Component {
     }
 
     kelasBaris(r) {
-        return r._gaya ? "kop-lap-baris-" + r._gaya : "";
+        const kelas = r._gaya ? "kop-lap-baris-" + r._gaya : "";
+        return r._buka ? kelas + " kop-tr" : kelas;
+    }
+
+    /** Drill-down: baris yang membawa `_buka` membuka form record-nya, atau daftar bila berupa domain. */
+    bukaBaris(r) {
+        const b = r._buka;
+        if (!b) return;
+        if (b.id) {
+            this.action.doAction({
+                type: "ir.actions.act_window", res_model: b.model, res_id: b.id, views: [[false, "form"]],
+            });
+        } else {
+            this.action.doAction({
+                type: "ir.actions.act_window", name: b.nama, res_model: b.model,
+                views: [[false, "list"], [false, "form"]], domain: b.domain || [],
+            });
+        }
     }
 
     kelasStatus(teks) {

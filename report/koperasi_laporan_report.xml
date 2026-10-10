@@ -38,8 +38,8 @@
                             .kopl .kop-head .teks { display: table-cell; vertical-align: middle; padding-left: 10px; }
                             .kopl h1 { font-size: 20px; margin: 0; color: #4c1d95; }
                             .kopl .sub { color: #6b7280; margin-top: 2px; }
-                            .kopl .meta { display: table; margin: 6px 0 12px; }
-                            .kopl .meta span { display: table-cell; padding-right: 26px; }
+                            .kopl .meta { margin: 6px 0 10px; line-height: 1.7; }
+                            .kopl .meta span { display: inline-block; margin-right: 26px; white-space: nowrap; }
                             .kopl .meta b { color: #4b5563; font-weight: 600; }
                             .kopl .kartu { width: 100%; border-collapse: separate; border-spacing: 6px 0; margin: 0 -6px 12px; }
                             .kopl .kartu td { background: #f5f3ff; border-left: 4px solid #7c3aed; padding: 7px 10px; width: 16.6%; }
@@ -84,6 +84,7 @@
                         <div class="meta">
                             <span><b>Mitra:</b> <t t-out="laporan['mitra_label']"/></span>
                             <span><b>Periode:</b> <t t-out="laporan['periode_label']"/></span>
+                            <span t-if="laporan.get('status_periode')"><b>Status:</b> <t t-out="laporan['status_periode']['label']"/> (<t t-out="laporan['status_periode']['keterangan']"/>)</span>
                             <span><b>Dibuat:</b> <t t-out="laporan['dibuat']"/> oleh <t t-out="laporan['oleh']"/></span>
                         </div>
 
@@ -146,9 +147,13 @@
                             <div t-foreach="laporan['catatan']" t-as="c">• <t t-out="c"/></div>
                         </div>
                         <div class="ttd">
-                            <div>Dibuat oleh,<br/><span class="garis" t-out="laporan['oleh']"/></div>
-                            <div>Mengetahui,<br/><span class="garis">&#160;</span></div>
-                            <div>Disetujui,<br/><span class="garis">&#160;</span></div>
+                            <t t-foreach="laporan['penandatangan']" t-as="ttd">
+                                <div>
+                                    <t t-out="ttd['peran']"/><br/>
+                                    <t t-if="ttd['jabatan']" t-out="ttd['jabatan']"/><t t-else="">&#160;</t><br/>
+                                    <span class="garis"><t t-if="ttd['nama']" t-out="ttd['nama']"/><t t-else="">&#160;</t></span>
+                                </div>
+                            </t>
                         </div>
                     </div>
                 </t>

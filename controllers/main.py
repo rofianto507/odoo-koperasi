@@ -28,17 +28,26 @@ class KoperasiTagihanController(http.Controller):
 class KoperasiLaporanController(http.Controller):
     """Unduhan laporan. Semua angka dihitung dengan hak pengguna (tanpa sudo)."""
 
-    def _params(self, jenis, mitra, dari, sampai, anggota):
-        return {'jenis': jenis, 'mitra': mitra or False, 'dari': dari or False,
-                'sampai': sampai or False, 'anggota': anggota or False}
+    def _params(self, jenis, kw):
+        def angka(nama):
+            try:
+                return int(kw.get(nama) or 0) or False
+            except (TypeError, ValueError):
+                return False
+        return {'jenis': jenis, 'mitra': angka('mitra'), 'dari': angka('dari'), 'sampai': angka('sampai'),
+                'anggota': angka('anggota'), 'pinjaman': angka('pinjaman'), 'shu': angka('shu')}
 
     def _laporan(self, p):
-        return request.env['koperasi.laporan'].get_laporan(
-            p['jenis'], p['mitra'], p['dari'], p['sampai'], p['anggota'])
+        laporan = request.env['koperasi.laporan'].get_laporan(
+            p['jenis'], p['mitra'], p['dari'], p['sampai'], p['anggota'], p['pinjaman'], p['shu'])
+        if p['jenis'] in ('kartu', 'shu') and laporan['perlu_anggota']:
+            # dokumen tidak ada atau bukan hak pengguna
+            raise request.not_found()
+        return laporan
 
     @http.route('/koperasi/laporan/xlsx', type='http', auth='user')
-    def laporan_xlsx(self, jenis='ringkasan', mitra=0, dari=0, sampai=0, anggota=0, **kw):
-        p = self._params(jenis, int(mitra or 0), int(dari or 0), int(sampai or 0), int(anggota or 0))
+    def laporan_xlsx(self, jenis='ringkasan', **kw):
+        p = self._params(jenis, kw)
         try:
             laporan = self._laporan(p)
         except AccessError:
@@ -52,8 +61,8 @@ class KoperasiLaporanController(http.Controller):
         ])
 
     @http.route('/koperasi/laporan/pdf', type='http', auth='user')
-    def laporan_pdf(self, jenis='ringkasan', mitra=0, dari=0, sampai=0, anggota=0, **kw):
-        p = self._params(jenis, int(mitra or 0), int(dari or 0), int(sampai or 0), int(anggota or 0))
+    def laporan_pdf(self, jenis='ringkasan', **kw):
+        p = self._params(jenis, kw)
         try:
             laporan = self._laporan(p)  # juga memastikan hak akses sebelum PDF dibuat
             isi, _tipe = request.env['ir.actions.report']._render_qweb_pdf(

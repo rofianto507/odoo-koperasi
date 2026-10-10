@@ -9,16 +9,18 @@
         <div class="kop-sidebar-brand">
             <img class="kop-sidebar-logo" src="/koperasi/static/src/img/logo_laporan.png" alt="Koperasi"/>
         </div>
-        <div class="kop-sidebar-section">
-            <div class="kop-sidebar-section-title">Laporan</div>
-            <t t-foreach="state.opsi.jenis" t-as="j" t-key="j.id">
-                <div t-attf-class="kop-sidebar-item #{ state.jenis === j.id ? 'active' : '' }"
-                     t-on-click="() => this.setJenis(j.id)" t-att-title="j.label">
-                    <i t-attf-class="fa #{j.ikon}"/>
-                    <span t-esc="j.label"/>
-                </div>
-            </t>
-        </div>
+        <t t-foreach="state.opsi.kelompok" t-as="g" t-key="g">
+            <div class="kop-sidebar-section">
+                <div class="kop-sidebar-section-title" t-esc="g"/>
+                <t t-foreach="jenisKelompok(g)" t-as="j" t-key="j.id">
+                    <div t-attf-class="kop-sidebar-item #{ state.jenis === j.id ? 'active' : '' }"
+                         t-on-click="() => this.setJenis(j.id)" t-att-title="j.label">
+                        <i t-attf-class="fa #{j.ikon}"/>
+                        <span t-esc="j.label"/>
+                    </div>
+                </t>
+            </div>
+        </t>
         <div class="kop-sidebar-footer">
             <div class="kop-sidebar-toggle" t-on-click="toggleSidebar"
                  t-att-title="state.sidebarCollapsed ? 'Buka sidebar' : 'Tutup sidebar'">
@@ -37,6 +39,12 @@
                     <h1 t-esc="jenisAktif.label"/>
                     <span t-if="state.laporan and !state.laporan.perlu_anggota" class="kop-header-sub"
                           t-esc="state.laporan.periode_label"/>
+                    <span t-if="state.laporan and state.laporan.status_periode"
+                          t-attf-class="kop-lap-status #{ state.laporan.status_periode.final ? 'kop-lap-status--final' : '' }"
+                          t-att-title="state.laporan.status_periode.keterangan">
+                        <i t-attf-class="fa #{ state.laporan.status_periode.final ? 'fa-lock' : 'fa-unlock-alt' }"/>
+                        <t t-esc="state.laporan.status_periode.label"/>
+                    </span>
                 </div>
                 <div class="kop-header-right">
                     <button class="kop-btn kop-btn--pdf" t-att-disabled="!bisaUnduh" t-on-click="() => this.unduh('pdf')">
@@ -58,7 +66,7 @@
                         </t>
                     </select>
                 </div>
-                <div class="kop-lap-filter-item">
+                <div t-if="jenisAktif.rentang" class="kop-lap-filter-item">
                     <label>Dari periode</label>
                     <select class="kop-select kop-select--periode" t-on-change="onDari">
                         <t t-foreach="state.opsi.periode_list" t-as="p" t-key="p.id">
@@ -68,11 +76,11 @@
                     </select>
                 </div>
                 <div class="kop-lap-filter-item">
-                    <label>Sampai periode</label>
+                    <label t-esc="jenisAktif.label_sampai"/>
                     <select class="kop-select kop-select--periode" t-on-change="onSampai">
                         <t t-foreach="state.opsi.periode_list" t-as="p" t-key="p.id">
                             <option t-att-value="p.id" t-att-selected="state.sampai === p.id"
-                                    t-att-disabled="periodeLewat(state.dari, p.id)" t-esc="p.name"/>
+                                    t-att-disabled="jenisAktif.rentang and periodeLewat(state.dari, p.id)" t-esc="p.name"/>
                         </t>
                     </select>
                 </div>
@@ -151,7 +159,7 @@
                                     </thead>
                                     <tbody>
                                         <t t-foreach="b.baris" t-as="r" t-key="r_index">
-                                            <tr t-att-class="kelasBaris(r)">
+                                            <tr t-att-class="kelasBaris(r)" t-on-click="() => this.bukaBaris(r)">
                                                 <t t-foreach="b.kolom" t-as="k" t-key="k.key">
                                                     <td t-if="k.tipe === 'status'" class="kop-tgh">
                                                         <span t-if="r[k.key]" t-att-class="kelasStatus(r[k.key])"

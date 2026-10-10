@@ -56,6 +56,9 @@
                         <field name="state" widget="statusbar"/>
                     </header>
                     <sheet>
+                        <field name="periode_state" invisible="1"/>
+                        <widget name="web_ribbon" title="Periode Ditutup" bg_color="text-bg-secondary"
+                                invisible="periode_state != 'ditutup'"/>
                         <div class="oe_title">
                             <h1><field name="name"/></h1>
                         </div>
@@ -97,15 +100,15 @@
                                                decoration-danger="status == 'belum'"/>
                                         <button name="action_dibayar" type="object" icon="fa-check"
                                                 title="Tandai Dibayar" class="text-success"
-                                                invisible="state not in ('terbit', 'lunas') or status == 'dibayar' or dibawa_ke_id"
+                                                invisible="state not in ('terbit', 'lunas') or status == 'dibayar' or dibawa_ke_id or parent.periode_state == 'ditutup'"
                                                 groups="koperasi.group_koperasi_operator"/>
                                         <button name="action_belum_dibayar" type="object" icon="fa-times"
                                                 title="Tandai Belum Dibayar (jadi tunggakan)" class="text-danger"
-                                                invisible="state not in ('terbit', 'lunas') or status == 'belum' or dibawa_ke_id"
+                                                invisible="state not in ('terbit', 'lunas') or status == 'belum' or dibawa_ke_id or parent.periode_state == 'ditutup'"
                                                 groups="koperasi.group_koperasi_operator"/>
                                         <button name="action_batal_validasi" type="object" icon="fa-undo"
                                                 title="Batalkan Validasi"
-                                                invisible="state not in ('terbit', 'lunas') or status == 'menunggu' or dibawa_ke_id"
+                                                invisible="state not in ('terbit', 'lunas') or status == 'menunggu' or dibawa_ke_id or parent.periode_state == 'ditutup'"
                                                 groups="koperasi.group_koperasi_operator"/>
                                     </list>
                                 </field>
@@ -193,6 +196,7 @@
                            decoration-success="status == 'dibayar'"
                            decoration-danger="status == 'belum'"/>
                     <field name="tanggal_bayar" optional="show"/>
+                    <field name="periode_akui_id" optional="hide"/>
                 </list>
             </field>
         </record>
@@ -202,16 +206,27 @@
             <field name="name">koperasi.periode.list</field>
             <field name="model">koperasi.periode</field>
             <field name="arch" type="xml">
-                <list string="Periode" editable="top">
+                <list string="Periode" editable="top" decoration-muted="state == 'ditutup'">
                     <header>
                         <button name="action_buat_12_bulan" type="object" display="always"
                                 string="Tambah 12 Bulan Berikutnya" class="btn-secondary"/>
                     </header>
                     <field name="name"/>
-                    <field name="bulan"/>
-                    <field name="tahun" options="{'format': false}"/>
+                    <field name="bulan" readonly="state == 'ditutup'"/>
+                    <field name="tahun" options="{'format': false}" readonly="state == 'ditutup'"/>
                     <field name="tanggal_mulai"/>
                     <field name="tanggal_akhir"/>
+                    <field name="state" widget="badge"
+                           decoration-success="state == 'terbuka'"
+                           decoration-muted="state == 'ditutup'"/>
+                    <field name="ditutup_oleh_id" optional="show"/>
+                    <field name="tanggal_tutup" optional="show"/>
+                    <button name="action_tutup" type="object" string="Tutup Periode" icon="fa-lock"
+                            invisible="state != 'terbuka'"
+                            confirm="Periode ini dan semua periode sebelumnya yang masih terbuka akan ditutup. Setelah ditutup, tagihan dan validasi pembayarannya tidak dapat diubah lagi. Lanjutkan?"/>
+                    <button name="action_buka" type="object" string="Buka Kembali" icon="fa-unlock"
+                            invisible="state != 'ditutup'"
+                            confirm="Periode ini akan dibuka kembali sehingga validasi pembayarannya bisa diubah, dan angka laporannya bisa ikut berubah. Lanjutkan?"/>
                 </list>
             </field>
         </record>
@@ -223,6 +238,8 @@
                 <search string="Cari Periode">
                     <field name="name"/>
                     <field name="tahun"/>
+                    <filter name="f_terbuka" string="Terbuka" domain="[('state', '=', 'terbuka')]"/>
+                    <filter name="f_ditutup" string="Ditutup" domain="[('state', '=', 'ditutup')]"/>
                     <group>
                         <filter name="g_tahun" string="Tahun" context="{'group_by': 'tahun'}"/>
                     </group>
@@ -259,6 +276,32 @@
                             <group string="Batas Potongan Gaji">
                                 <field name="batas_potongan"/>
                                 <field name="plafon_kelipatan"/>
+                            </group>
+                        </group>
+                        <group string="Pembagian SHU (%)">
+                            <group>
+                                <field name="shu_cadangan"/>
+                                <field name="shu_jasa_modal"/>
+                                <field name="shu_jasa_usaha"/>
+                            </group>
+                            <group>
+                                <field name="shu_pengurus"/>
+                                <field name="shu_pendidikan"/>
+                                <field name="shu_sosial"/>
+                            </group>
+                        </group>
+                        <p class="text-muted">
+                            Jumlahnya harus 100%. Dipakai sebagai bawaan saat membuat tutup buku baru;
+                            tutup buku yang sudah ada tidak berubah.
+                        </p>
+                        <group string="Penandatangan Laporan PDF">
+                            <group>
+                                <field name="ttd_mengetahui_jabatan" string="Mengetahui: Jabatan"/>
+                                <field name="ttd_mengetahui_nama" string="Mengetahui: Nama"/>
+                            </group>
+                            <group>
+                                <field name="ttd_menyetujui_jabatan" string="Disetujui: Jabatan"/>
+                                <field name="ttd_menyetujui_nama" string="Disetujui: Nama"/>
                             </group>
                         </group>
                         <p class="text-muted">

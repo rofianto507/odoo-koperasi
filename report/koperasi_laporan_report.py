@@ -35,7 +35,8 @@ class ReportLaporanPdf(models.AbstractModel):
         p = (data or {}).get('params', {})
         laporan = self.env['koperasi.laporan'].get_laporan(
             p.get('jenis', 'ringkasan'), p.get('mitra') or False, p.get('dari') or False,
-            p.get('sampai') or False, p.get('anggota') or False)
+            p.get('sampai') or False, p.get('anggota') or False, p.get('pinjaman') or False,
+            p.get('shu') or False)
         with file_open('koperasi/static/src/img/logo.png', 'rb') as f:
             logo = base64.b64encode(f.read()).decode()
         return {

@@ -105,6 +105,21 @@
             <field name="groups" eval="[(4, ref('group_koperasi_operator'))]"/>
         </record>
 
+        <!-- Penarikan simpanan: admin mitra hanya anggota mitranya -->
+        <record id="rule_koperasi_penarikan_own" model="ir.rule">
+            <field name="name">Penarikan: admin mitra hanya penarikan mitranya</field>
+            <field name="model_id" ref="model_koperasi_penarikan"/>
+            <field name="domain_force">[('mitra_id', '=', user.koperasi_mitra_id.id)]</field>
+            <field name="groups" eval="[(4, ref('group_koperasi_mitra'))]"/>
+        </record>
+
+        <record id="rule_koperasi_penarikan_operator" model="ir.rule">
+            <field name="name">Penarikan: operator melihat semua</field>
+            <field name="model_id" ref="model_koperasi_penarikan"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('group_koperasi_operator'))]"/>
+        </record>
+
         <!-- Operator: tanpa batas. Operator juga implied admin mitra, jadi rule
              ini di-OR-kan dengan rule di atas dan menang. -->
         <record id="rule_koperasi_mitra_operator" model="ir.rule">

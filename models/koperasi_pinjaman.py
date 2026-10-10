@@ -26,6 +26,11 @@ FIELD_ALUR = {
 }
 
 ADMIN_MODE = [('persen', 'Persentase dari pokok'), ('nominal', 'Nominal rupiah')]
+# Urutan = umur angsuran tertua yang belum dibayar: tanpa tunggakan, bulan berjalan, 1, 2, 3+ bulan
+KUALITAS_PINJAMAN = [
+    ('lancar', 'Lancar'), ('perhatian', 'Dalam Perhatian'), ('kurang', 'Kurang Lancar'),
+    ('diragukan', 'Diragukan'), ('macet', 'Macet'),
+]
 
 
 def rp(nilai):
@@ -287,6 +292,10 @@ class KoperasiPinjaman(models.Model):
     angsuran_dibayar = fields.Integer('Angsuran Dibayar', compute='_compute_sisa', store=True)
     sisa_pokok = fields.Monetary('Sisa Pokok', compute='_compute_sisa', store=True)
 
+    kualitas = fields.Selection(
+        KUALITAS_PINJAMAN, string='Kualitas', compute='_compute_kualitas',
+        help='Menurut angsuran tertua yang belum dibayar, dihitung terhadap bulan berjalan.')
+
     _pokok_positif = models.Constraint('CHECK(pokok > 0)', 'Pokok pinjaman harus lebih dari nol.')
 
     # ------------------------------------------------------------------
@@ -386,6 +395,23 @@ class KoperasiPinjaman(models.Model):
             masalah = r._masalah_kelayakan()
             if masalah:
                 raise UserError('\n'.join(masalah))
+
+    def _compute_kualitas(self):
+        """Hanya untuk pinjaman berjalan. sudo: status baris tagihan milik pinjaman ini sendiri."""
+        acuan = fields.Date.context_today(self).replace(day=1)
+        berjalan = self.filtered(lambda p: p.state == 'berjalan')
+        tertua = {p.id: tgl for p, tgl in self.env['koperasi.pinjaman.angsuran'].sudo()._read_group(
+            [('pinjaman_id', 'in', berjalan.ids), ('tagihan_line_id.status', '=', 'belum'),
+             ('jatuh_tempo', '<=', acuan)], ['pinjaman_id'], ['jatuh_tempo:min'])}
+        for r in self:
+            if r not in berjalan:
+                r.kualitas = False
+            elif r.id not in tertua:
+                r.kualitas = 'lancar'
+            else:
+                t = tertua[r.id]
+                umur = (acuan.year - t.year) * 12 + acuan.month - t.month
+                r.kualitas = KUALITAS_PINJAMAN[min(max(umur, 0), 3) + 1][0]
 
     @api.depends('angsuran_ids.status', 'angsuran_ids.pokok', 'pokok')
     def _compute_sisa(self):
@@ -510,6 +536,15 @@ class KoperasiPinjaman(models.Model):
                 raise UserError(_('Alasan penolakan wajib diisi.'))
             r.write({'state': 'ditolak', 'penyetuju_id': False, 'tanggal_setuju': False})
 
+    def action_kartu_pinjaman(self):
+        """Kartu pinjaman (PDF): data pinjaman dan jadwal angsurannya."""
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_url',
+            'url': '/koperasi/laporan/pdf?jenis=kartu&pinjaman=%d' % self.id,
+            'target': 'new',
+        }
+
     def action_buka_tolak_wizard(self):
         self.ensure_one()
         self._cek_operator()
@@ -557,6 +592,11 @@ class KoperasiPinjamanAngsuran(models.Model):
         'koperasi.tagihan.line', string='Baris Tagihan', readonly=True, copy=False,
         index=True, ondelete='set null')
     tagihan_id = fields.Many2one(related='tagihan_line_id.tagihan_id', string='Tagihan')
+    # periode pengakuan pembayaran, mengikuti baris tagihannya (lihat koperasi.tagihan.line)
+    periode_akui_id = fields.Many2one(
+        related='tagihan_line_id.periode_akui_id', store=True, index=True)
+    tanggal_akui = fields.Date(
+        'Tanggal Pengakuan', related='tagihan_line_id.tanggal_akui', store=True, index=True)
     status = fields.Selection(
         [('terjadwal', 'Terjadwal'), ('ditagihkan', 'Ditagihkan'), ('dibayar', 'Dibayar')],
         string='Status', compute='_compute_status', store=True)
