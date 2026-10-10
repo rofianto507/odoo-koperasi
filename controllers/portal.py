@@ -206,7 +206,7 @@ class KoperasiPortal(http.Controller):
         isi = {
             'name': 'Koperasi - Portal Anggota', 'short_name': 'Koperasi',
             'start_url': '/koperasi/portal', 'scope': '/koperasi/portal', 'display': 'standalone',
-            'orientation': 'portrait-primary', 'background_color': '#6d28d9', 'theme_color': '#6d28d9', 'lang': 'id',
+            'orientation': 'portrait-primary', 'background_color': '#71639e', 'theme_color': '#71639e', 'lang': 'id',
             'icons': [{'src': ikon, 'sizes': '192x192', 'type': 'image/png', 'purpose': 'any'},
                       {'src': ikon, 'sizes': '512x512', 'type': 'image/png', 'purpose': 'any'}],
         }

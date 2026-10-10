@@ -387,7 +387,7 @@
                                 </label>
                             </div>
                         </div>
-                        <div style="font-size:17px;font-weight:800" t-esc="d.anggota.nama"/>
+                        <div style="font-size:17px;font-weight:700" t-esc="d.anggota.nama"/>
                         <div class="kp-kecil"><t t-esc="d.anggota.nomor"/> · @<t t-esc="d.username"/></div>
                         <div style="margin-top:6px"><span t-att-class="lencana(d.anggota.status)" t-esc="d.anggota.status_label"/></div>
                     </div>
