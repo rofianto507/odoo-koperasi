@@ -169,7 +169,8 @@ class KoperasiLaporan(models.AbstractModel):
 
     def _konteks(self, jenis, mitra_id, dari, sampai, anggota_id, pinjaman_id=False):
         Periode = self.env['koperasi.periode']
-        sekarang = Periode._untuk_tanggal(fields.Date.context_today(self))
+        # _untuk_tanggal melepas sudo; pertahankan bila mesin dipanggil dengan sudo (portal anggota)
+        sekarang = Periode._untuk_tanggal(fields.Date.context_today(self)).sudo(self.env.su)
         semua_mitra = self.env['koperasi.mitra'].search([])
         mitra = semua_mitra.filtered(lambda m: m.id == mitra_id) if mitra_id else semua_mitra
         anggota = self.env['koperasi.anggota']
@@ -187,7 +188,7 @@ class KoperasiLaporan(models.AbstractModel):
         if jenis == 'anggota' and anggota and not dari:
             awal = self.env['koperasi.tagihan.line']._read_group(
                 [('anggota_id', '=', anggota.id)], [], ['periode:min'])[0][0]
-            p_dari = Periode._untuk_tanggal(awal) if awal else p_sampai
+            p_dari = Periode._untuk_tanggal(awal).sudo(self.env.su) if awal else p_sampai
         elif dari:
             p_dari = Periode.browse(dari).exists()
         else:

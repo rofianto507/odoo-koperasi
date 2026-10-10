@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- Bagian <head> bersama semua halaman portal (halaman mandiri, bukan backend Odoo) -->
+        <template id="portal_head" name="Koperasi Portal: head">
+            <meta charset="UTF-8"/>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+            <meta name="theme-color" content="#6d28d9"/>
+            <meta name="mobile-web-app-capable" content="yes"/>
+            <meta name="apple-mobile-web-app-capable" content="yes"/>
+            <meta name="robots" content="noindex, nofollow"/>
+            <title><t t-out="judul_halaman or 'Portal Anggota'"/> - <t t-out="perusahaan"/></title>
+            <link rel="icon" type="image/png" href="/koperasi/static/description/icon.png"/>
+            <link rel="apple-touch-icon" href="/koperasi/static/description/icon.png"/>
+            <link rel="manifest" href="/koperasi/portal/manifest.json"/>
+            <link rel="stylesheet" href="/web/static/src/libs/fontawesome/css/font-awesome.css"/>
+            <link rel="stylesheet" t-attf-href="/koperasi/static/src/portal/portal.css?v=#{versi}"/>
+        </template>
+
+        <!-- Pesan sederhana (tautan undangan tidak berlaku, dsb.) -->
+        <template id="portal_pesan" name="Koperasi Portal: pesan">
+            <html lang="id">
+                <head><t t-call="koperasi.portal_head"/></head>
+                <body>
+                    <div class="kp-shell kp-shell--polos">
+                        <div class="kp-hero">
+                            <div class="kp-hero-merek">
+                                <div class="kp-hero-logo"><i class="fa fa-users"/></div>
+                                <div class="kp-hero-judul">Portal Anggota</div>
+                                <div class="kp-hero-sub" t-out="perusahaan"/>
+                            </div>
+                        </div>
+                        <div class="kp-kartu kp-kartu--angkat kp-form-kartu" style="text-align:center">
+                            <div style="font-size:38px;color:#b45309"><i class="fa fa-chain-broken"/></div>
+                            <div class="kp-form-judul" style="margin-top:8px" t-out="judul"/>
+                            <div class="kp-form-sub" style="margin-bottom:18px" t-out="pesan"/>
+                            <a class="kp-tombol kp-tombol--garis" href="/koperasi/portal/login">Ke Halaman Masuk</a>
+                        </div>
+                    </div>
+                </body>
+            </html>
+        </template>
+
+        <!-- Login -->
+        <template id="portal_login" name="Koperasi Portal: login">
+            <html lang="id">
+                <head>
+                    <t t-set="judul_halaman" t-value="'Masuk'"/>
+                    <t t-call="koperasi.portal_head"/>
+                </head>
+                <body>
+                    <div class="kp-shell kp-shell--polos">
+                        <div class="kp-hero">
+                            <div class="kp-hero-merek">
+                                <div class="kp-hero-logo"><i class="fa fa-users"/></div>
+                                <div class="kp-hero-judul">Portal Anggota</div>
+                                <div class="kp-hero-sub" t-out="perusahaan"/>
+                            </div>
+                        </div>
+                        <div class="kp-kartu kp-kartu--angkat kp-form-kartu">
+                            <div class="kp-form-judul">Selamat Datang</div>
+                            <div class="kp-form-sub">Masuk dengan username dan password Anda.</div>
+
+                            <div t-if="error == 'salah'" class="kp-peringatan kp-peringatan--merah" style="margin-bottom:14px">
+                                <i class="fa fa-exclamation-circle"/><span>Username atau password tidak sesuai.</span>
+                            </div>
+                            <div t-if="error == 'bukan'" class="kp-peringatan" style="margin-bottom:14px">
+                                <i class="fa fa-ban"/><span>Akun tersebut bukan akun anggota koperasi.</span>
+                            </div>
+                            <div t-if="error == 'batas'" class="kp-peringatan" style="margin-bottom:14px">
+                                <i class="fa fa-clock-o"/><span>Terlalu banyak percobaan. Coba lagi beberapa menit lagi.</span>
+                            </div>
+                            <div t-if="akun_lain" class="kp-peringatan kp-peringatan--info" style="margin-bottom:14px">
+                                <i class="fa fa-info-circle"/>
+                                <span>Peramban ini sedang masuk sebagai <b t-out="akun_lain"/>, yang bukan akun anggota.
+                                      Masuk di sini akan menggantikan sesi tersebut.</span>
+                            </div>
+
+                            <form method="POST" action="/koperasi/portal/login" autocomplete="on">
+                                <input type="hidden" name="csrf_token" t-att-value="csrf"/>
+                                <div class="kp-isian">
+                                    <label for="kp-login">Username</label>
+                                    <input id="kp-login" class="kp-input" type="text" name="login" required="required"
+                                           autocomplete="username" autocapitalize="none" spellcheck="false" autofocus="autofocus"/>
+                                </div>
+                                <div class="kp-isian">
+                                    <label for="kp-password">Password</label>
+                                    <div class="kp-input-bungkus">
+                                        <input id="kp-password" class="kp-input kp-input--ikon" type="password" name="password"
+                                               required="required" autocomplete="current-password"/>
+                                        <button type="button" class="kp-input-aksi" id="kp-lihat" title="Tampilkan password">
+                                            <i class="fa fa-eye"/>
+                                        </button>
+                                    </div>
+                                </div>
+                                <button type="submit" class="kp-tombol"><i class="fa fa-sign-in"/> Masuk</button>
+                            </form>
+                        </div>
+                        <div class="kp-kaki" style="margin-top:18px;padding:0 24px">
+                            Belum punya akun atau lupa password? Minta tautan kepada admin di tempat kerja Anda.
+                        </div>
+                    </div>
+                    <script type="text/javascript">
+                        (function () {
+                            var tombol = document.getElementById('kp-lihat');
+                            var isian = document.getElementById('kp-password');
+                            tombol.addEventListener('click', function () {
+                                var lihat = isian.type === 'password';
+                                isian.type = lihat ? 'text' : 'password';
+                                tombol.firstElementChild.className = 'fa ' + (lihat ? 'fa-eye-slash' : 'fa-eye');
+                            });
+                        })();
+                    </script>
+                </body>
+            </html>
+        </template>
+
+        <!-- Pendaftaran dari tautan undangan (OWL: static/src/portal/daftar.js) -->
+        <template id="portal_daftar" name="Koperasi Portal: daftar">
+            <html lang="id">
+                <head>
+                    <t t-set="judul_halaman" t-value="'Buat Akun'"/>
+                    <t t-call="koperasi.portal_head"/>
+                </head>
+                <body>
+                    <div id="kp-daftar" t-att-data-init="init_data" t-att-data-perusahaan="perusahaan"/>
+                    <script type="text/javascript" src="/web/static/lib/owl/owl.js"/>
+                    <script type="text/javascript" t-attf-src="/koperasi/static/src/portal/util.js?v=#{versi}"/>
+                    <script type="text/javascript" t-attf-src="/koperasi/static/src/portal/daftar.js?v=#{versi}"/>
+                </body>
+            </html>
+        </template>
+
+        <!-- Aplikasi portal (OWL: static/src/portal/app.js) -->
+        <template id="portal_app" name="Koperasi Portal: aplikasi">
+            <html lang="id">
+                <head><t t-call="koperasi.portal_head"/></head>
+                <body>
+                    <div id="kp-app" t-att-data-init="init_data" t-att-data-perusahaan="perusahaan"/>
+                    <script type="text/javascript" src="/web/static/lib/owl/owl.js"/>
+                    <script type="text/javascript" t-attf-src="/koperasi/static/src/portal/util.js?v=#{versi}"/>
+                    <script type="text/javascript" t-attf-src="/koperasi/static/src/portal/app.js?v=#{versi}"/>
+                </body>
+            </html>
+        </template>
+
+        <!-- ============ Backend: dialog Akses Portal pada anggota ============ -->
+        <record id="view_koperasi_anggota_portal_form" model="ir.ui.view">
+            <field name="name">koperasi.anggota.portal.form</field>
+            <field name="model">koperasi.anggota</field>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <form string="Akses Portal" create="0" delete="0" edit="0">
+                    <sheet>
+                        <group>
+                            <group string="Akun Portal">
+                                <field name="name" string="Anggota" readonly="1"/>
+                                <field name="portal_status" widget="badge"
+                                       decoration-muted="portal_status == 'belum'"
+                                       decoration-warning="portal_status == 'diundang'"
+                                       decoration-success="portal_status == 'aktif'"
+                                       decoration-danger="portal_status == 'nonaktif'"/>
+                                <field name="portal_login" invisible="not portal_login"/>
+                                <field name="portal_login_terakhir" invisible="not portal_login"/>
+                                <field name="undangan_berlaku" invisible="not undangan_url"/>
+                            </group>
+                            <group string="Kode QR" invisible="not undangan_url">
+                                <field name="undangan_qr" widget="image" nolabel="1" colspan="2" readonly="1"
+                                       options="{'size': [220, 220]}"/>
+                            </group>
+                        </group>
+                        <group invisible="not undangan_url">
+                            <field name="undangan_url" widget="CopyClipboardChar" readonly="1"/>
+                        </group>
+                        <group invisible="not portal_login">
+                            <field name="portal_url" widget="CopyClipboardChar" readonly="1"
+                                   help="Alamat untuk masuk ke portal; bisa dibagikan ke anggota yang sudah punya akun."/>
+                        </group>
+                        <div class="alert alert-info" role="alert" invisible="undangan_url or portal_status != 'belum'">
+                            Anggota ini belum punya akun portal. Buat tautan undangan, lalu bagikan tautan atau
+                            kode QR-nya. Anggota membuka tautan itu untuk mengisi username, password, dan foto profil.
+                        </div>
+                        <div class="alert alert-info" role="alert" invisible="not undangan_url">
+                            <span invisible="portal_login">Bagikan tautan atau kode QR ini kepada anggota. Tautan hanya
+                                bisa dipakai satu kali dan berlaku 7 hari.</span>
+                            <span invisible="not portal_login">Anggota sudah punya akun. Tautan ini dipakai untuk membuat
+                                password baru; username tidak berubah.</span>
+                        </div>
+                        <p class="text-muted" invisible="not undangan_url">
+                            Tautan memakai alamat yang sedang Anda buka sekarang. Supaya bisa dibuka dari ponsel
+                            anggota, buka Odoo lewat alamat yang juga terjangkau dari ponsel (bukan localhost).
+                        </p>
+                    </sheet>
+                    <footer>
+                        <button name="action_buat_undangan" type="object" class="btn-primary"
+                                string="Buat Tautan Undangan"
+                                invisible="portal_login or undangan_url"/>
+                        <button name="action_buat_undangan" type="object" class="btn-primary"
+                                string="Buat Tautan Atur Ulang Password"
+                                invisible="not portal_login or undangan_url"/>
+                        <button name="action_bagikan_whatsapp" type="object" class="btn-success"
+                                string="Bagikan lewat WhatsApp" icon="fa-whatsapp"
+                                invisible="not undangan_url"/>
+                        <button name="action_buat_undangan" type="object" string="Buat Ulang Tautan"
+                                invisible="not undangan_url"
+                                confirm="Tautan yang lama langsung tidak berlaku. Lanjutkan?"/>
+                        <button name="action_cabut_undangan" type="object" string="Cabut Tautan"
+                                invisible="not undangan_url"/>
+                        <button name="action_nonaktifkan_portal" type="object" string="Nonaktifkan Akun"
+                                invisible="portal_status != 'aktif'" groups="koperasi.group_koperasi_operator"
+                                confirm="Anggota tidak akan bisa masuk ke portal sampai akunnya diaktifkan kembali. Lanjutkan?"/>
+                        <button name="action_nonaktifkan_portal" type="object" string="Aktifkan Kembali Akun"
+                                invisible="portal_status != 'nonaktif'" groups="koperasi.group_koperasi_operator"/>
+                        <button string="Tutup" special="cancel" class="btn-secondary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+    </data>
+</odoo>

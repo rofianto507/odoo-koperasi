@@ -14,4 +14,5 @@ from . import koperasi_laporan_xlsx
 from . import koperasi_pembukuan
 from . import koperasi_penarikan
 from . import koperasi_shu
+from . import koperasi_portal
 from . import koperasi_laporan_buku

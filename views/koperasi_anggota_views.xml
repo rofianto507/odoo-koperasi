@@ -25,6 +25,11 @@
                     <field name="currency_id" column_invisible="1"/>
                     <field name="saldo_total" optional="show"/>
                     <field name="tunggakan_total" optional="hide"/>
+                    <field name="portal_status" optional="hide" widget="badge"
+                           decoration-muted="portal_status == 'belum'"
+                           decoration-warning="portal_status == 'diundang'"
+                           decoration-success="portal_status == 'aktif'"
+                           decoration-danger="portal_status == 'nonaktif'"/>
                     <field name="state"/>
                 </list>
             </field>
@@ -48,6 +53,8 @@
                         <button name="action_kembali_draft" type="object" string="Kembalikan ke Draft"
                                 invisible="state not in ('aktif', 'ditolak')"
                                 groups="koperasi.group_koperasi_operator"/>
+                        <button name="action_portal" type="object" string="Akses Portal"
+                                icon="fa-mobile" invisible="state not in ('aktif', 'keluar')"/>
                         <button name="action_lihat_penarikan" type="object" string="Penarikan Simpanan"
                                 icon="fa-sign-out" invisible="state not in ('aktif', 'keluar')"/>
                         <button name="action_buku_simpanan" type="object" string="Buku Simpanan"
