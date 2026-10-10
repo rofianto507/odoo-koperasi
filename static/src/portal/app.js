@@ -4,7 +4,7 @@
 (function () {
     'use strict';
 
-    const { Component, useState, mount, xml, onWillStart } = owl;
+    const { Component, useState, mount, xml, onWillStart, onWillUnmount } = owl;
     const { rpc, rp, tgl, inisial, warnaStatus, kecilkanFoto, syaratPassword } = window.KopPortal;
 
     const MASUK = '/koperasi/portal/login';
@@ -454,6 +454,28 @@
                         </div>
                     </div>
 
+                    <div t-if="state.pwa !== 'terpasang'" class="kp-kartu">
+                        <div class="kp-kartu-judul"><span><i class="fa fa-mobile"/> Pasang Aplikasi</span></div>
+                        <t t-if="state.pwa === 'siap'">
+                            <div class="kp-kecil" style="margin-bottom:10px">
+                                Pasang portal ini di perangkat Anda supaya bisa dibuka langsung dari layar utama, seperti aplikasi biasa.
+                            </div>
+                            <button class="kp-tombol" t-on-click="pasang"><i class="fa fa-download"/> Pasang di Perangkat Ini</button>
+                        </t>
+                        <div t-elif="state.pwa === 'ios'" class="kp-kecil">
+                            Di iPhone atau iPad: buka halaman ini dengan Safari, ketuk tombol <b>Bagikan</b>
+                            <i class="fa fa-share-square-o"/>, lalu pilih <b>Tambah ke Layar Utama</b>.
+                        </div>
+                        <div t-elif="state.pwa === 'tidakaman'" class="kp-kecil">
+                            Pemasangan sebagai aplikasi hanya tersedia bila portal dibuka lewat alamat aman (https).
+                            Anda tetap bisa menambahkan halaman ini ke layar utama dari menu peramban.
+                        </div>
+                        <div t-else="" class="kp-kecil">
+                            Buka menu peramban (<i class="fa fa-ellipsis-v"/>), lalu pilih <b>Instal aplikasi</b> atau
+                            <b>Tambahkan ke layar utama</b>.
+                        </div>
+                    </div>
+
                     <a class="kp-tombol kp-tombol--merah" href="/koperasi/portal/logout"><i class="fa fa-sign-out"/> Keluar</a>
                     <div class="kp-kaki" t-esc="props.perusahaan"/>
                 </div>
@@ -462,7 +484,31 @@
         siapkan() {
             Object.assign(this.state, {
                 unggah: false, formPassword: false, lama: '', baru: '', ulang: '', galatPassword: null, simpan: false,
+                pwa: this.keadaanPwa(),
             });
+            const pwa = window.KopPwa;
+            if (pwa) {
+                // tawaran pasang dari peramban bisa datang belakangan
+                const berhenti = pwa.pantau(() => { this.state.pwa = this.keadaanPwa(); });
+                onWillUnmount(berhenti);
+            }
+        }
+
+        /** 'terpasang' | 'siap' (peramban menawarkan pasang) | 'ios' | 'tidakaman' | 'manual' */
+        keadaanPwa() {
+            const pwa = window.KopPwa;
+            if (!pwa) return 'manual';
+            if (pwa.terpasang) return 'terpasang';
+            if (pwa.tawaran) return 'siap';
+            if (pwa.ios) return 'ios';
+            if (!pwa.aman) return 'tidakaman';
+            return 'manual';
+        }
+
+        async pasang() {
+            const hasil = await window.KopPwa.pasang();
+            if (hasil === 'accepted') this.props.toast('Aplikasi sedang dipasang.', 'sukses');
+            this.state.pwa = this.keadaanPwa();
         }
 
         get syarat() { return syaratPassword(this.state.baru); }

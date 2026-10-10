@@ -15,7 +15,7 @@ from collections import defaultdict
 
 from odoo import http
 from odoo.exceptions import AccessDenied, UserError
-from odoo.http import content_disposition, request
+from odoo.http import content_disposition, db_list, request
 from odoo.modules.module import get_manifest
 
 from odoo.addons.web.controllers.home import Home
@@ -58,6 +58,68 @@ def _foto_valid(b64):
             or (mentah[:4] == b'RIFF' and mentah[8:12] == b'WEBP')):
         raise UserError('Foto harus berupa gambar JPEG, PNG, atau WebP.')
     return b64
+
+
+SERVICE_WORKER = r"""/* Koperasi - Portal Anggota: service worker (dibuat oleh controllers/portal.py) */
+const CACHE = %(versi)s;
+const PINTU = %(pintu)s;
+const KERANGKA = %(kerangka)s;
+const STATIS = ['/koperasi/static/src/portal/', '/web/static/lib/owl/', '/web/static/src/libs/fontawesome/'];
+const HALAMAN_PORTAL = ['/koperasi/portal', '/koperasi/portal/', '/koperasi/portal/login'];
+const OFFLINE = '<!doctype html><html lang="id"><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1"><title>Tidak ada koneksi</title>' +
+    '<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;' +
+    'font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#f6f6f8;color:#2b2a33;text-align:center;padding:24px}' +
+    'h1{font-size:19px;margin:14px 0 6px}p{color:#7a788a;font-size:14px;margin:0 0 20px}' +
+    'button{border:none;border-radius:14px;padding:13px 26px;background:#71639e;color:#fff;font-weight:600;font-size:15px}' +
+    '</style></head><body><div><div style="font-size:42px">&#128268;</div><h1>Tidak ada koneksi</h1>' +
+    '<p>Portal anggota membutuhkan internet untuk menampilkan data terbaru.</p>' +
+    '<button onclick="location.reload()">Coba Lagi</button></div></body></html>';
+
+self.addEventListener('install', (ev) => {
+    self.skipWaiting();
+    ev.waitUntil(caches.open(CACHE).then((c) => c.addAll(KERANGKA)).catch(() => {}));
+});
+
+self.addEventListener('activate', (ev) => {
+    ev.waitUntil(
+        caches.keys()
+            .then((kunci) => Promise.all(kunci.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+            .then(() => self.clients.claim()));
+});
+
+self.addEventListener('fetch', (ev) => {
+    const req = ev.request;
+    if (req.method !== 'GET') return;
+    const url = new URL(req.url);
+    if (url.origin !== self.location.origin) return;
+
+    if (req.mode === 'navigate') {
+        ev.respondWith(
+            fetch(req).then((res) => {
+                // sesi habis di server multi-database: tetapkan database dulu lewat pintu masuk
+                if (res.status === 404 && PINTU && HALAMAN_PORTAL.includes(url.pathname)) {
+                    return Response.redirect(PINTU, 302);
+                }
+                return res;
+            }).catch(() => new Response(OFFLINE, { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } })));
+        return;
+    }
+
+    if (STATIS.some((awalan) => url.pathname.startsWith(awalan))) {
+        // berkas statis: dari simpanan bila ada, selebihnya dari jaringan lalu disimpan
+        ev.respondWith(
+            caches.match(req).then((ada) => ada || fetch(req).then((res) => {
+                if (res.ok) {
+                    const salinan = res.clone();
+                    caches.open(CACHE).then((c) => c.put(req, salinan));
+                }
+                return res;
+            })));
+    }
+    // selain itu (API, foto, PDF): langsung ke jaringan, tidak disimpan
+});
+"""
 
 
 class KoperasiHome(Home):
@@ -200,18 +262,73 @@ class KoperasiPortal(http.Controller):
             'init_data': json.dumps({'anggota': anggota._portal_identitas()}),
         })
 
+    # ------------------------------------------------------------------
+    # PWA: manifest dan service worker (anggota bisa memasang portal sebagai aplikasi)
+    # ------------------------------------------------------------------
     @http.route('/koperasi/portal/manifest.json', type='http', auth='public', website=False)
     def manifest(self, **kw):
-        ikon = '/koperasi/static/description/icon.png'
+        ikon = '/koperasi/static/src/portal/icons/'
+        versi = get_manifest('koperasi').get('version', '0')
         isi = {
-            'name': 'Koperasi - Portal Anggota', 'short_name': 'Koperasi',
-            'start_url': '/koperasi/portal', 'scope': '/koperasi/portal', 'display': 'standalone',
-            'orientation': 'portrait-primary', 'background_color': '#71639e', 'theme_color': '#71639e', 'lang': 'id',
-            'icons': [{'src': ikon, 'sizes': '192x192', 'type': 'image/png', 'purpose': 'any'},
-                      {'src': ikon, 'sizes': '512x512', 'type': 'image/png', 'purpose': 'any'}],
+            'id': '/koperasi/portal',
+            'name': 'Koperasi - Portal Anggota',
+            'short_name': 'Koperasi',
+            'description': 'Simpanan, pinjaman, dan tagihan anggota koperasi.',
+            'start_url': '/koperasi/portal',
+            'scope': '/koperasi/portal',
+            'display': 'standalone',
+            'orientation': 'portrait-primary',
+            'background_color': '#ffffff',
+            'theme_color': '#71639e',
+            'lang': 'id',
+            'categories': ['finance'],
+            'icons': [
+                {'src': '%sicon-192.png?v=%s' % (ikon, versi), 'sizes': '192x192', 'type': 'image/png', 'purpose': 'any'},
+                {'src': '%sicon-512.png?v=%s' % (ikon, versi), 'sizes': '512x512', 'type': 'image/png', 'purpose': 'any'},
+                {'src': '%sicon-maskable-512.png?v=%s' % (ikon, versi), 'sizes': '512x512', 'type': 'image/png',
+                 'purpose': 'maskable'},
+            ],
+            'shortcuts': [
+                {'name': 'Simpanan', 'url': '/koperasi/portal#simpanan',
+                 'icons': [{'src': '%sicon-192.png?v=%s' % (ikon, versi), 'sizes': '192x192'}]},
+                {'name': 'Pinjaman', 'url': '/koperasi/portal#pinjaman',
+                 'icons': [{'src': '%sicon-192.png?v=%s' % (ikon, versi), 'sizes': '192x192'}]},
+            ],
         }
         return request.make_response(json.dumps(isi), headers=[
             ('Content-Type', 'application/manifest+json'), ('Cache-Control', 'no-cache')])
+
+    @http.route('/koperasi/portal/sw.js', type='http', auth='public', website=False)
+    def service_worker(self, **kw):
+        """Service worker portal. Tugasnya sengaja sedikit:
+        - menyimpan berkas statis (OWL, gaya, skrip, ikon) supaya aplikasi cepat terbuka;
+        - menampilkan layar "tidak ada koneksi" saat offline;
+        - pada server multi-database: bila sesi habis dan halaman portal menjawab 404 (Odoo tidak
+          tahu databasenya), pengunjung dialihkan lewat pintu masuk yang menetapkan database.
+        Data (API) dan halaman HTML TIDAK pernah disimpan, jadi angka selalu dari server."""
+        versi = get_manifest('koperasi').get('version', '0')
+        try:
+            banyak_db = len(db_list(force=True, host=request.httprequest.environ['HTTP_HOST'])) > 1
+        except Exception:
+            banyak_db = False
+        pintu = '/web/login?db=%s&redirect=%%2Fkoperasi%%2Fportal' % request.db if banyak_db else ''
+        statis = '/koperasi/static/src/portal/'
+        kerangka = [
+            '/web/static/lib/owl/owl.js',
+            '/web/static/src/libs/fontawesome/css/font-awesome.css',
+            '%sportal.css?v=%s' % (statis, versi), '%sutil.js?v=%s' % (statis, versi),
+            '%spwa.js?v=%s' % (statis, versi), '%sapp.js?v=%s' % (statis, versi),
+            '%sicons/icon-192.png?v=%s' % (statis, versi),
+        ]
+        isi = SERVICE_WORKER % {
+            'versi': json.dumps('koperasi-portal-' + versi), 'pintu': json.dumps(pintu),
+            'kerangka': json.dumps(kerangka),
+        }
+        return request.make_response(isi, headers=[
+            ('Content-Type', 'application/javascript; charset=utf-8'),
+            ('Service-Worker-Allowed', '/koperasi/'),
+            ('Cache-Control', 'no-cache'),
+        ])
 
     # ------------------------------------------------------------------
     # API data (JSON-RPC)

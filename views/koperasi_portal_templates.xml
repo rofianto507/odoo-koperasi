@@ -9,13 +9,17 @@
             <meta name="theme-color" content="#71639e"/>
             <meta name="mobile-web-app-capable" content="yes"/>
             <meta name="apple-mobile-web-app-capable" content="yes"/>
+            <meta name="apple-mobile-web-app-title" content="Koperasi"/>
+            <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
             <meta name="robots" content="noindex, nofollow"/>
             <title><t t-out="judul_halaman or 'Portal Anggota'"/> - <t t-out="perusahaan"/></title>
-            <link rel="icon" type="image/png" href="/koperasi/static/description/icon.png"/>
-            <link rel="apple-touch-icon" href="/koperasi/static/description/icon.png"/>
+            <link rel="icon" type="image/png" t-attf-href="/koperasi/static/src/portal/icons/icon-192.png?v=#{versi}"/>
+            <link rel="apple-touch-icon" t-attf-href="/koperasi/static/src/portal/icons/apple-touch-icon.png?v=#{versi}"/>
             <link rel="manifest" href="/koperasi/portal/manifest.json"/>
             <link rel="stylesheet" href="/web/static/src/libs/fontawesome/css/font-awesome.css"/>
             <link rel="stylesheet" t-attf-href="/koperasi/static/src/portal/portal.css?v=#{versi}"/>
+            <!-- pemasangan sebagai aplikasi: service worker + tawaran pasang -->
+            <script type="text/javascript" defer="defer" t-attf-src="/koperasi/static/src/portal/pwa.js?v=#{versi}"/>
         </template>
 
         <!-- Pesan sederhana (tautan undangan tidak berlaku, dsb.) -->
@@ -154,8 +158,9 @@
                 <form string="Akses Portal" create="0" delete="0" edit="0">
                     <sheet>
                         <group>
-                            <group string="Akun Portal">
-                                <field name="name" string="Anggota" readonly="1"/>
+                            <group>
+                                <!-- nama anggota sudah ada di judul dialog -->
+                                <field name="name" invisible="1"/>
                                 <field name="portal_status" widget="badge"
                                        decoration-muted="portal_status == 'belum'"
                                        decoration-warning="portal_status == 'diundang'"
