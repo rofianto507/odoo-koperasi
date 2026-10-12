@@ -9,7 +9,7 @@
                 <list string="Tutup Buku &amp; Laba">
                     <field name="currency_id" column_invisible="1"/>
                     <field name="name"/>
-                    <field name="tahun" options="{'format': false}"/>
+                    <field name="tahun" options="{'enable_formatting': false}"/>
                     <field name="total_pendapatan"/>
                     <field name="total_beban"/>
                     <field name="shu"/>
@@ -58,7 +58,7 @@
                         <group>
                             <group>
                                 <field name="currency_id" invisible="1"/>
-                                <field name="tahun" options="{'format': false}" readonly="state != 'draft'"/>
+                                <field name="tahun" options="{'enable_formatting': false}" readonly="state != 'draft'"/>
                                 <field name="tanggal_hitung"/>
                             </group>
                             <group>

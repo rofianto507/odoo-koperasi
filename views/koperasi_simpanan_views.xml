@@ -213,7 +213,7 @@
                     </header>
                     <field name="name"/>
                     <field name="bulan" readonly="state == 'ditutup'"/>
-                    <field name="tahun" options="{'format': false}" readonly="state == 'ditutup'"/>
+                    <field name="tahun" options="{'enable_formatting': false}" readonly="state == 'ditutup'"/>
                     <field name="tanggal_mulai"/>
                     <field name="tanggal_akhir"/>
                     <field name="state" widget="badge"
