@@ -37,7 +37,7 @@ SUMBER_JURNAL = [
     ('penerimaan', 'Penerimaan Tagihan'),
     ('penarikan', 'Penarikan Simpanan'),
     ('penutup', 'Jurnal Penutup'),
-    ('shu', 'Pembayaran SHU'),
+    ('shu', 'Pembayaran Pembagian Laba'),
 ]
 STATE_JURNAL = [('draft', 'Draft'), ('posted', 'Terposting')]
 

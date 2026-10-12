@@ -278,16 +278,14 @@
                                 <field name="plafon_kelipatan"/>
                             </group>
                         </group>
-                        <group string="Pembagian SHU (%)">
+                        <group string="Pembagian Laba (%)">
                             <group>
-                                <field name="shu_cadangan"/>
-                                <field name="shu_jasa_modal"/>
-                                <field name="shu_jasa_usaha"/>
+                                <field name="laba_pemodal"/>
+                                <field name="laba_ditahan"/>
                             </group>
                             <group>
-                                <field name="shu_pengurus"/>
-                                <field name="shu_pendidikan"/>
-                                <field name="shu_sosial"/>
+                                <field name="laba_anggota"/>
+                                <field name="laba_mitra"/>
                             </group>
                         </group>
                         <p class="text-muted">

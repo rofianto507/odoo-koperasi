@@ -34,7 +34,7 @@ JENIS = [
     ('anggota', 'Buku Simpanan Anggota', 'fa-address-book-o'),
     # dari jurnal pembukuan (koperasi_laporan_buku.py)
     ('neraca', 'Neraca', 'fa-balance-scale'),
-    ('labarugi', 'Laba Rugi (SHU)', 'fa-bar-chart'),
+    ('labarugi', 'Laba Rugi', 'fa-bar-chart'),
     ('aruskas', 'Arus Kas', 'fa-exchange'),
     ('bukubesar', 'Neraca Saldo & Jurnal', 'fa-book'),
 ]

@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <data>
+        <!-- Sebelum akun dimuat: buang akun pos pembagian versi lama yang tidak dipakai lagi -->
+        <function model="koperasi.akun" name="_hapus_akun_usang"/>
+    </data>
+
     <data noupdate="1">
         <!-- Nomor jurnal tanpa celah -->
         <record id="seq_koperasi_jurnal" model="ir.sequence">
@@ -47,51 +52,47 @@
             <field name="jenis">kewajiban</field>
             <field name="sistem" eval="True"/>
         </record>
+        <!-- Simpanan pokok dan wajib adalah titipan anggota yang dikembalikan saat keluar: kewajiban -->
+        <record id="akun_simpok" model="koperasi.akun">
+            <field name="kode">2102</field>
+            <field name="name">Simpanan Pokok Anggota</field>
+            <field name="jenis">kewajiban</field>
+            <field name="sistem" eval="True"/>
+        </record>
+        <record id="akun_simwa" model="koperasi.akun">
+            <field name="kode">2103</field>
+            <field name="name">Simpanan Wajib Anggota</field>
+            <field name="jenis">kewajiban</field>
+            <field name="sistem" eval="True"/>
+        </record>
         <record id="akun_utang" model="koperasi.akun">
             <field name="kode">2201</field>
             <field name="name">Utang kepada Pihak Ketiga</field>
             <field name="jenis">kewajiban</field>
         </record>
 
+        <!-- Pembagian laba yang sudah ditetapkan tetapi belum dibayarkan -->
         <record id="akun_shu_anggota" model="koperasi.akun">
             <field name="kode">2301</field>
-            <field name="name">SHU Bagian Anggota</field>
+            <field name="name">Imbalan Anggota Terutang</field>
             <field name="jenis">kewajiban</field>
             <field name="sistem" eval="True"/>
-            <field name="keterangan">Jasa modal dan jasa usaha yang sudah ditetapkan tetapi belum dibayarkan.</field>
+            <field name="keterangan">Imbalan simpanan yang sudah ditetapkan tetapi belum dibayarkan.</field>
         </record>
-        <record id="akun_dana_pengurus" model="koperasi.akun">
+        <record id="akun_utang_mitra" model="koperasi.akun">
             <field name="kode">2302</field>
-            <field name="name">Dana Pengurus dan Karyawan</field>
+            <field name="name">Komisi Mitra Terutang</field>
             <field name="jenis">kewajiban</field>
             <field name="sistem" eval="True"/>
         </record>
-        <record id="akun_dana_pendidikan" model="koperasi.akun">
+        <record id="akun_utang_pemodal" model="koperasi.akun">
             <field name="kode">2303</field>
-            <field name="name">Dana Pendidikan</field>
-            <field name="jenis">kewajiban</field>
-            <field name="sistem" eval="True"/>
-        </record>
-        <record id="akun_dana_sosial" model="koperasi.akun">
-            <field name="kode">2304</field>
-            <field name="name">Dana Sosial</field>
+            <field name="name">Imbal Hasil Pemodal Terutang</field>
             <field name="jenis">kewajiban</field>
             <field name="sistem" eval="True"/>
         </record>
 
         <!-- Ekuitas -->
-        <record id="akun_simpok" model="koperasi.akun">
-            <field name="kode">3101</field>
-            <field name="name">Simpanan Pokok</field>
-            <field name="jenis">ekuitas</field>
-            <field name="sistem" eval="True"/>
-        </record>
-        <record id="akun_simwa" model="koperasi.akun">
-            <field name="kode">3102</field>
-            <field name="name">Simpanan Wajib</field>
-            <field name="jenis">ekuitas</field>
-            <field name="sistem" eval="True"/>
-        </record>
         <record id="akun_modal" model="koperasi.akun">
             <field name="kode">3201</field>
             <field name="name">Modal Penyertaan</field>
@@ -101,10 +102,10 @@
 
         <record id="akun_cadangan" model="koperasi.akun">
             <field name="kode">3301</field>
-            <field name="name">Dana Cadangan</field>
+            <field name="name">Laba Ditahan</field>
             <field name="jenis">ekuitas</field>
             <field name="sistem" eval="True"/>
-            <field name="keterangan">Bagian SHU yang ditahan; rugi tahun buku juga dibebankan ke sini.</field>
+            <field name="keterangan">Bagian laba yang tetap di usaha; rugi tahun buku juga dibebankan ke sini.</field>
         </record>
 
         <!-- Pendapatan -->
@@ -150,6 +151,8 @@
     </data>
 
     <data>
+        <!-- Tiap pembaruan: akun bawaan versi lama disesuaikan (simpanan pokok/wajib menjadi kewajiban) -->
+        <function model="koperasi.akun" name="_sesuaikan_bagan_akun"/>
         <!-- Tiap pembaruan: lengkapi jurnal otomatis untuk transaksi yang belum berjurnal -->
         <function model="koperasi.jurnal" name="_buat_jurnal_lama"/>
     </data>

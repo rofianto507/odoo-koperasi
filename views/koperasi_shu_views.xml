@@ -6,15 +6,15 @@
             <field name="name">koperasi.shu.list</field>
             <field name="model">koperasi.shu</field>
             <field name="arch" type="xml">
-                <list string="Tutup Buku &amp; SHU">
+                <list string="Tutup Buku &amp; Laba">
                     <field name="currency_id" column_invisible="1"/>
                     <field name="name"/>
                     <field name="tahun" options="{'format': false}"/>
                     <field name="total_pendapatan"/>
                     <field name="total_beban"/>
                     <field name="shu"/>
-                    <field name="nominal_anggota"/>
-                    <field name="jumlah_anggota"/>
+                    <field name="nominal_pemodal"/>
+                    <field name="laba_atas_modal" optional="show"/>
                     <field name="state" widget="badge"
                            decoration-muted="state == 'draft'"
                            decoration-warning="state == 'ditetapkan'"
@@ -27,16 +27,16 @@
             <field name="name">koperasi.shu.form</field>
             <field name="model">koperasi.shu</field>
             <field name="arch" type="xml">
-                <form string="Tutup Buku &amp; SHU">
+                <form string="Tutup Buku &amp; Laba">
                     <header>
-                        <button name="action_hitung" type="object" string="Hitung SHU"
+                        <button name="action_hitung" type="object" string="Hitung Laba"
                                 class="btn-primary" invisible="state != 'draft'"/>
                         <button name="action_tetapkan" type="object" string="Tetapkan &amp; Tutup Buku"
                                 invisible="state != 'draft'"
-                                confirm="SHU dihitung ulang, pembagiannya ditetapkan, dan jurnal penutup per 31 Desember dibuat. Semua periode tahun ini harus sudah ditutup. Lanjutkan?"/>
-                        <button name="action_bayar" type="object" string="Catat Pembayaran SHU"
+                                confirm="Laba dihitung ulang, pembagiannya ditetapkan, dan jurnal penutup per 31 Desember dibuat. Semua periode tahun ini harus sudah ditutup. Lanjutkan?"/>
+                        <button name="action_bayar" type="object" string="Catat Pembayaran"
                                 class="btn-primary" invisible="state != 'ditetapkan'"
-                                confirm="Pembayaran bagian anggota dicatat hari ini (debit SHU Bagian Anggota, kredit Bank). Setelah ini penetapan tidak dapat dibatalkan. Lanjutkan?"/>
+                                confirm="Imbal hasil pemodal, imbalan anggota, dan komisi mitra dicatat dibayar hari ini dari Bank. Setelah ini penetapan tidak dapat dibatalkan. Lanjutkan?"/>
                         <button name="action_draft" type="object" string="Batalkan Penetapan"
                                 invisible="state != 'ditetapkan'"
                                 confirm="Jurnal penutup akan dihapus dan tutup buku kembali ke Draft. Lanjutkan?"/>
@@ -48,9 +48,9 @@
                     </header>
                     <sheet>
                         <div class="alert alert-info" role="alert" invisible="state != 'draft'">
-                            Selama Draft ini adalah simulasi: klik <b>Hitung SHU</b> kapan saja untuk melihat
-                            perkiraan dari jurnal yang sudah diposting. SHU baru dapat ditetapkan setelah
-                            semua periode tahun buku ini ditutup.
+                            Selama Draft ini adalah simulasi: klik <b>Hitung Laba</b> kapan saja untuk melihat
+                            perkiraan dari jurnal yang sudah diposting, dan ubah persentasenya untuk membandingkan.
+                            Laba baru dapat ditetapkan setelah semua periode tahun buku ini ditutup.
                         </div>
                         <div class="oe_title">
                             <h1><field name="name"/></h1>
@@ -69,56 +69,64 @@
                             </group>
                         </group>
                         <group>
-                            <group string="Perhitungan SHU">
+                            <group string="Hasil Usaha">
                                 <field name="total_pendapatan"/>
                                 <field name="total_beban"/>
                                 <field name="shu" class="fw-bold"/>
-                                <field name="nominal_anggota"/>
-                                <field name="jumlah_anggota"/>
                             </group>
-                            <group string="Persentase Pembagian">
-                                <field name="persen_cadangan" readonly="state != 'draft'"/>
-                                <field name="persen_jasa_modal" readonly="state != 'draft'"/>
-                                <field name="persen_jasa_usaha" readonly="state != 'draft'"/>
-                                <field name="persen_pengurus" readonly="state != 'draft'"/>
-                                <field name="persen_pendidikan" readonly="state != 'draft'"/>
-                                <field name="persen_sosial" readonly="state != 'draft'"/>
+                            <group string="Dibanding Modal">
+                                <field name="modal_penyertaan"/>
+                                <field name="laba_atas_modal"/>
+                                <field name="imbal_atas_modal"/>
                             </group>
                         </group>
-                        <group string="Hasil Pembagian" invisible="not tanggal_hitung">
-                            <group>
-                                <field name="nominal_cadangan"/>
-                                <field name="nominal_jasa_modal"/>
-                                <field name="nominal_jasa_usaha"/>
+                        <group>
+                            <group string="Persentase Pembagian">
+                                <field name="persen_pemodal" readonly="state != 'draft'"/>
+                                <field name="persen_ditahan" readonly="state != 'draft'"/>
+                                <field name="persen_anggota" readonly="state != 'draft'"/>
+                                <field name="persen_mitra" readonly="state != 'draft'"/>
                             </group>
-                            <group>
-                                <field name="nominal_pengurus"/>
-                                <field name="nominal_pendidikan"/>
-                                <field name="nominal_sosial"/>
+                            <group string="Hasil Pembagian" invisible="not tanggal_hitung">
+                                <field name="nominal_pemodal" class="fw-bold"/>
+                                <field name="nominal_ditahan"/>
+                                <field name="nominal_anggota"/>
+                                <field name="nominal_mitra"/>
+                                <field name="nominal_dibayar"/>
                             </group>
                         </group>
                         <notebook>
-                            <page string="Bagian per Anggota" name="anggota">
+                            <page string="Komisi per Mitra" name="mitra">
+                                <field name="mitra_ids">
+                                    <list>
+                                        <field name="currency_id" column_invisible="1"/>
+                                        <field name="mitra_id"/>
+                                        <field name="dasar_pendapatan" sum="Total"/>
+                                        <field name="komisi" sum="Total"/>
+                                    </list>
+                                </field>
+                                <p class="text-muted">
+                                    Komisi dibagi sebanding pendapatan (jasa pinjaman dan biaya administrasi)
+                                    yang dihasilkan anggota tiap mitra selama tahun buku.
+                                </p>
+                            </page>
+                            <page string="Imbalan per Anggota" name="anggota">
                                 <field name="line_ids">
                                     <list>
                                         <field name="currency_id" column_invisible="1"/>
                                         <field name="anggota_id"/>
                                         <field name="mitra_id"/>
-                                        <field name="dasar_simpanan" optional="show"/>
-                                        <field name="dasar_jasa" optional="show"/>
-                                        <field name="jasa_modal" sum="Total"/>
-                                        <field name="jasa_usaha" sum="Total"/>
+                                        <field name="dasar_simpanan" sum="Total"/>
                                         <field name="total" sum="Total"/>
                                     </list>
                                 </field>
                                 <p class="text-muted">
-                                    Jasa modal dibagi sebanding simpanan pokok dan wajib anggota pada akhir tahun
-                                    buku. Jasa usaha dibagi sebanding jasa pinjaman dan biaya administrasi yang
-                                    dibayar anggota selama tahun buku. Sisa pembulatan masuk Dana Cadangan.
+                                    Imbalan dibagi sebanding saldo simpanan (pokok, wajib, sukarela) tiap anggota
+                                    pada akhir tahun buku. Sisa pembulatan masuk Laba Ditahan.
                                 </p>
                             </page>
                             <page string="Catatan" name="catatan">
-                                <field name="catatan" placeholder="Catatan rapat anggota, dasar keputusan, dst."/>
+                                <field name="catatan" placeholder="Dasar keputusan pembagian, catatan rapat, dst."/>
                             </page>
                         </notebook>
                     </sheet>
@@ -128,17 +136,17 @@
         </record>
 
         <record id="action_koperasi_shu" model="ir.actions.act_window">
-            <field name="name">Tutup Buku &amp; SHU</field>
+            <field name="name">Tutup Buku &amp; Laba</field>
             <field name="res_model">koperasi.shu</field>
             <field name="view_mode">list,form</field>
             <field name="help" type="html">
                 <p class="o_view_nocontent_smiling_face">Belum ada tutup buku</p>
-                <p>Buat satu untuk tiap tahun buku. Selama Draft, SHU dan pembagiannya bisa dihitung
+                <p>Buat satu untuk tiap tahun buku. Selama Draft, laba dan pembagiannya bisa dihitung
                    kapan saja sebagai simulasi.</p>
             </field>
         </record>
 
-        <menuitem id="menu_koperasi_shu" name="Tutup Buku &amp; SHU" parent="menu_koperasi_pembukuan"
+        <menuitem id="menu_koperasi_shu" name="Tutup Buku &amp; Laba" parent="menu_koperasi_pembukuan"
                   action="action_koperasi_shu" sequence="25"/>
 
     </data>
