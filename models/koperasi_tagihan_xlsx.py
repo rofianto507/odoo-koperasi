@@ -12,9 +12,6 @@ KOLOM = [
     ('NIP / ID Karyawan', 18),
     ('Nama Anggota', 32),
     ('Jabatan', 22),
-    ('Simpanan Pokok', 16),
-    ('Simpanan Wajib', 16),
-    ('Simpanan Sukarela', 17),
     ('Angsuran Pokok', 16),
     ('Angsuran Jasa', 15),
     ('Tunggakan', 15),
@@ -23,8 +20,8 @@ KOLOM = [
     ('Tanggal Dibayar', 16),
 ]
 # indeks kolom (0-based) untuk rumus
-K_POKOK, K_WAJIB, K_SUKARELA, K_ANG_POKOK, K_ANG_JASA, K_TUNGGAKAN = 5, 6, 7, 8, 9, 10
-K_JUMLAH, K_STATUS, K_TANGGAL = 11, 12, 13
+K_ANG_POKOK, K_ANG_JASA, K_TUNGGAKAN = 5, 6, 7
+K_JUMLAH, K_STATUS, K_TANGGAL = 8, 9, 10
 
 
 class KoperasiTagihanXlsx(models.Model):
@@ -56,8 +53,7 @@ class KoperasiTagihanXlsx(models.Model):
 
         pecahan = any(
             abs(v - round(v)) > 1e-9
-            for l in baris for v in (l.simpok, l.simwa, l.simsula, l.angsuran_pokok,
-                                     l.angsuran_jasa, l.tunggakan))
+            for l in baris for v in (l.angsuran_pokok, l.angsuran_jasa, l.tunggakan))
         fmt_angka = '#,##0.00' if pecahan else '#,##0'
         dasar = {'font_name': 'Calibri', 'font_size': 11, 'valign': 'vcenter'}
         f = lambda **kw: wb.add_format(dict(dasar, **kw))
@@ -109,15 +105,12 @@ class KoperasiTagihanXlsx(models.Model):
             ws.write(r, 2, a.nip or '', teks)
             ws.write(r, 3, a.name or '', teks)
             ws.write(r, 4, a.jabatan or '', teks)
-            ws.write_number(r, K_POKOK, l.simpok, angka)
-            ws.write_number(r, K_WAJIB, l.simwa, angka)
-            ws.write_number(r, K_SUKARELA, l.simsula, angka)
             ws.write_number(r, K_ANG_POKOK, l.angsuran_pokok, angka)
             ws.write_number(r, K_ANG_JASA, l.angsuran_jasa, angka)
             ws.write_number(r, K_TUNGGAKAN, l.tunggakan, angka)
             ws.write_formula(
                 r, K_JUMLAH,
-                '=SUM(%s:%s)' % (sel(r, K_POKOK), sel(r, K_TUNGGAKAN)), angka, l.total)
+                '=SUM(%s:%s)' % (sel(r, K_ANG_POKOK), sel(r, K_TUNGGAKAN)), angka, l.total)
             ws.write(r, K_STATUS, status.get(l.status, l.status), tengah)
             if l.tanggal_bayar:
                 ws.write_datetime(r, K_TANGGAL, l.tanggal_bayar, tanggal)
@@ -127,8 +120,7 @@ class KoperasiTagihanXlsx(models.Model):
         total = akhir + 1
         ws.merge_range(total, 0, total, 4, 'TOTAL', tebal_total)
         nilai_total = {
-            K_POKOK: self.total_simpok, K_WAJIB: self.total_simwa,
-            K_SUKARELA: self.total_simsula, K_ANG_POKOK: self.total_angsuran_pokok,
+            K_ANG_POKOK: self.total_angsuran_pokok,
             K_ANG_JASA: self.total_angsuran_jasa, K_TUNGGAKAN: self.total_tunggakan,
             K_JUMLAH: self.total,
         }

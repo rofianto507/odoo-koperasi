@@ -5,7 +5,7 @@ dan Excel (xlsxwriter). Semua angka dihitung dari data operasional dengan hak pe
 yang memanggil, tanpa sudo: admin mitra otomatis hanya mendapat mitranya, dan tagihan
 Draft tidak ikut terhitung baginya.
 
-Penerimaan (simpanan, angsuran) dihitung menurut PERIODE PENGAKUAN baris tagihan
+Penerimaan (angsuran pinjaman) dihitung menurut PERIODE PENGAKUAN baris tagihan
 (`periode_akui_id`): periode tagihannya sendiri bila dibayar langsung, atau periode tagihan
 pembawanya bila dibayar sebagai tunggakan. Karena itu angka periode yang sudah ditutup
 tidak berubah oleh pembayaran susulan.
@@ -26,12 +26,11 @@ from .koperasi_tagihan import STATE_TAGIHAN, STATUS_BARIS
 
 JENIS = [
     ('ringkasan', 'Ringkasan Keuangan', 'fa-line-chart'),
-    ('simpanan', 'Laporan Simpanan', 'fa-bank'),
     ('pinjaman', 'Laporan Pinjaman', 'fa-credit-card'),
     ('tagihan', 'Tagihan & Kolektibilitas', 'fa-file-text-o'),
     ('kualitas', 'Umur Tunggakan & Kualitas Pinjaman', 'fa-heartbeat'),
     ('proyeksi', 'Proyeksi Penerimaan', 'fa-calendar'),
-    ('anggota', 'Buku Simpanan Anggota', 'fa-address-book-o'),
+    ('anggota', 'Riwayat Anggota', 'fa-address-book-o'),
     # dari jurnal pembukuan (koperasi_laporan_buku.py)
     ('neraca', 'Neraca', 'fa-balance-scale'),
     ('labarugi', 'Laba Rugi', 'fa-bar-chart'),
@@ -245,7 +244,7 @@ class KoperasiLaporan(models.AbstractModel):
             domain.append((kunci, '<=', sampai))
         if diterima:
             domain.append(('status', '=', 'dibayar'))
-        komponen = ('simpok', 'simwa', 'simsula', 'angsuran_pokok', 'angsuran_jasa')
+        komponen = ('angsuran_pokok', 'angsuran_jasa')
         hasil = []
         for tagihan, st, akui, *nilai in Line._read_group(
                 domain, ['tagihan_id', 'status', 'periode_akui_id'], ['%s:sum' % k for k in komponen] + ['__count']):
@@ -253,24 +252,9 @@ class KoperasiLaporan(models.AbstractModel):
             tepat = st == 'dibayar' and akui == tagihan.periode_id
             v.update(tagihan=tagihan, periode=akui if diterima else tagihan.periode_id, mitra=tagihan.mitra_id,
                      status=st, tepat=tepat, susulan=st == 'dibayar' and not tepat)
-            v['simpanan'] = v['simpok'] + v['simwa'] + v['simsula']
-            v['angsuran'] = v['angsuran_pokok'] + v['angsuran_jasa']
-            v['asli'] = v['simpanan'] + v['angsuran']
+            v['asli'] = v['angsuran_pokok'] + v['angsuran_jasa']
             hasil.append(v)
         return hasil
-
-    def _penarikan(self, ctx, kunci=None, sejak=None, sampai=None, domain=None):
-        """Penarikan simpanan yang sudah dibayar, menurut tanggal bayar: [pokok, wajib, sukarela],
-        atau {id: [pokok, wajib, sukarela]} bila dikelompokkan menurut `kunci`."""
-        dom = (ctx['dm'] if domain is None else domain) + [('state', '=', 'dibayar')]
-        if sejak:
-            dom.append(('tanggal_bayar', '>=', sejak))
-        if sampai:
-            dom.append(('tanggal_bayar', '<=', sampai))
-        agregat = ['simpok:sum', 'simwa:sum', 'simsula:sum']
-        if kunci:
-            return self._kelompok('koperasi.penarikan', dom, kunci, agregat)
-        return self._jumlah('koperasi.penarikan', dom, agregat)
 
     def _tunggakan_per_anggota(self, ctx):
         """Definisi sama dengan mitra/anggota/dashboard: baris Belum Dibayar yang belum ditagih
@@ -324,11 +308,6 @@ class KoperasiLaporan(models.AbstractModel):
     def _laporan_ringkasan(self, ctx):
         ta, tb = ctx['ta'], ctx['tb']
         baris = self._baris_tagihan(ctx, sampai=tb, diterima=True)
-        masuk = [b for b in baris if b['periode'].tanggal_mulai >= ta]
-        tarik_sd = self._penarikan(ctx, sampai=tb)
-        total_tarik = sum(self._penarikan(ctx, sejak=ta, sampai=tb))
-        saldo_akhir = {k: sum(b[k] for b in baris) - tarik_sd[i] for i, k in enumerate(('simpok', 'simwa', 'simsula'))}
-        diterima = {k: sum(b[k] for b in masuk) for k in ('simpok', 'simwa', 'simsula', 'angsuran_pokok', 'angsuran_jasa')}
         pinjaman = self._pinjaman_rinci(ctx)
         cair = sum(r['pokok'] for r in pinjaman if r['baru'])
         admin = sum(r['admin'] for r in pinjaman if r['baru'])
@@ -337,10 +316,8 @@ class KoperasiLaporan(models.AbstractModel):
         jasa = sum(r['jasa_rentang'] for r in pinjaman)
         piutang_awal = sum(r['piutang_awal'] for r in pinjaman)
         piutang_akhir = sum(r['piutang_akhir'] for r in pinjaman)
-        simpanan_masuk = diterima['simpok'] + diterima['simwa'] + diterima['simsula']
-        penerimaan = simpanan_masuk + kembali + jasa + admin
-        arus = penerimaan - cair - total_tarik
-        total_simpanan = sum(saldo_akhir.values())
+        penerimaan = kembali + jasa + admin
+        arus = penerimaan - cair
         tunggakan = sum(self._tunggakan_per_anggota(ctx).values())
         tersalurkan = sum(r['pokok'] for r in pinjaman)
         anggota_aktif = self.env['koperasi.anggota'].search_count(ctx['dm'] + [('state', '=', 'aktif')])
@@ -351,11 +328,6 @@ class KoperasiLaporan(models.AbstractModel):
             return {'uraian': uraian, 'jumlah': jumlah, '_gaya': gaya}
 
         posisi = bagian(_('Posisi pada Akhir Periode (%s)', ctx['p_sampai'].name), K, [
-            isi(_('Simpanan anggota'), None, 'judul'),
-            isi(_('Simpanan pokok'), saldo_akhir['simpok']),
-            isi(_('Simpanan wajib'), saldo_akhir['simwa']),
-            isi(_('Simpanan sukarela'), saldo_akhir['simsula']),
-            isi(_('Total simpanan anggota'), total_simpanan, 'total'),
             isi(_('Pinjaman'), None, 'judul'),
             isi(_('Dana pinjaman tersalurkan (kumulatif)'), tersalurkan),
             isi(_('Piutang pinjaman (sisa pokok)'), piutang_akhir, 'total'),
@@ -364,16 +336,12 @@ class KoperasiLaporan(models.AbstractModel):
         ], total=False)
         arus_dana = bagian(_('Arus Dana Periode (%s)', ctx['periode_label']), K, [
             isi(_('Penerimaan'), None, 'judul'),
-            isi(_('Simpanan pokok'), diterima['simpok']),
-            isi(_('Simpanan wajib'), diterima['simwa']),
-            isi(_('Simpanan sukarela'), diterima['simsula']),
             isi(_('Angsuran pokok pinjaman'), kembali),
             isi(_('Jasa pinjaman'), jasa),
             isi(_('Biaya admin pencairan'), admin),
             isi(_('Total penerimaan'), penerimaan, 'total'),
             isi(_('Pengeluaran'), None, 'judul'),
             isi(_('Pencairan pinjaman (%d pinjaman)', jumlah_cair), cair),
-            isi(_('Penarikan simpanan anggota'), total_tarik),
             isi(_('Arus dana bersih'), arus, 'total'),
         ], total=False, catatan=_(
             'Biaya admin dipotong dari dana yang dicairkan, jadi dicatat sebagai penerimaan '
@@ -385,14 +353,8 @@ class KoperasiLaporan(models.AbstractModel):
         ], total=False)
 
         # Rincian per periode
-        per = {p.id: {'periode': p.name, 'simpanan': 0, 'kembali': 0, 'jasa': 0, 'admin': 0, 'cair': 0, 'tarik': 0}
+        per = {p.id: {'periode': p.name, 'kembali': 0, 'jasa': 0, 'admin': 0, 'cair': 0}
                for p in ctx['periode_ids']}
-        for p_id, nilai in self._penarikan(ctx, 'periode_id', ta, tb).items():
-            if p_id in per:
-                per[p_id]['tarik'] += sum(nilai)
-        for b in masuk:
-            if b['periode'].id in per:
-                per[b['periode'].id]['simpanan'] += b['simpanan']
         for p_id, (pokok, js) in self._kelompok(
                 'koperasi.pinjaman.angsuran',
                 [('pinjaman_id.mitra_id', 'in', ctx['mitra'].ids), ('status', '=', 'dibayar'),
@@ -410,13 +372,13 @@ class KoperasiLaporan(models.AbstractModel):
                     per[p_id]['admin'] += r['admin']
         baris_periode = []
         for v in per.values():
-            v['arus'] = v['simpanan'] + v['kembali'] + v['jasa'] + v['admin'] - v['cair'] - v['tarik']
+            v['arus'] = v['kembali'] + v['jasa'] + v['admin'] - v['cair']
             baris_periode.append(v)
         per_periode = bagian(_('Arus Dana per Periode'), [
-            kolom('periode', 'Periode'), kolom('simpanan', 'Simpanan Diterima', 'rp', True),
+            kolom('periode', 'Periode'),
             kolom('kembali', 'Angsuran Pokok', 'rp', True), kolom('jasa', 'Jasa', 'rp', True),
             kolom('admin', 'Biaya Admin', 'rp', True), kolom('cair', 'Pencairan', 'rp', True),
-            kolom('tarik', 'Penarikan Simpanan', 'rp', True), kolom('arus', 'Arus Bersih', 'rp', True)], baris_periode)
+            kolom('arus', 'Arus Bersih', 'rp', True)], baris_periode)
 
         bagian_laporan = [posisi, arus_dana, pendapatan, per_periode]
         if ctx['per_mitra']:
@@ -425,16 +387,15 @@ class KoperasiLaporan(models.AbstractModel):
             'judul': _('Ringkasan Keuangan'),
             'subjudul': _('Posisi dan arus dana koperasi, dihitung dari data operasional'),
             'ringkasan': [
-                {'label': _('Total Simpanan Anggota'), 'nilai': total_simpanan, 'tipe': 'rp', 'sub': _('akhir periode')},
                 {'label': _('Piutang Pinjaman'), 'nilai': piutang_akhir, 'tipe': 'rp', 'sub': _('sisa pokok, akhir periode')},
                 {'label': _('Pendapatan Platform'), 'nilai': jasa + admin, 'tipe': 'rp', 'sub': _('jasa + biaya admin, periode ini')},
                 {'label': _('Arus Dana Bersih'), 'nilai': arus, 'tipe': 'rp', 'sub': _('penerimaan − pencairan, periode ini')},
                 {'label': _('Anggota Aktif'), 'nilai': anggota_aktif, 'tipe': 'angka', 'sub': _('saat ini')},
+                {'label': _('Tunggakan Saat Ini'), 'nilai': tunggakan, 'tipe': 'rp', 'sub': _('semua periode')},
                 {'label': _('Piutang Awal Periode'), 'nilai': piutang_awal, 'tipe': 'rp', 'sub': _('sisa pokok sebelum periode')},
             ],
             'bagian': bagian_laporan,
             'catatan': self._catatan_umum() + [
-                _('Simpanan anggota = simpanan yang sudah dibayar dikurangi penarikan yang sudah dibayar.'),
                 _('Piutang akhir = piutang awal + pencairan − angsuran pokok yang dibayar.'
                   ' Awal %(awal)s + pencairan %(cair)s − pokok kembali %(kembali)s = akhir %(akhir)s.',
                   awal=self._rp(piutang_awal), cair=self._rp(cair), kembali=self._rp(kembali),
@@ -443,12 +404,7 @@ class KoperasiLaporan(models.AbstractModel):
         }
 
     def _tabel_per_mitra(self, ctx, pinjaman, baris_saldo):
-        """Ringkasan per mitra: simpanan, piutang, pendapatan, tunggakan."""
-        simpanan = defaultdict(float)
-        for b in baris_saldo:
-            simpanan[b['mitra'].id] += b['simpanan']
-        for m_id, nilai in self._penarikan(ctx, 'mitra_id', sampai=ctx['tb']).items():
-            simpanan[m_id] -= sum(nilai)
+        """Ringkasan per mitra: piutang, pendapatan, tunggakan."""
         piutang, pendapatan = defaultdict(float), defaultdict(float)
         for r in pinjaman:
             m = r['rec'].mitra_id.id
@@ -460,104 +416,15 @@ class KoperasiLaporan(models.AbstractModel):
         aktif = self._kelompok('koperasi.anggota', ctx['dm'] + [('state', '=', 'aktif')], 'mitra_id', ['__count'])
         return bagian(_('Ringkasan per Mitra'), [
             kolom('mitra', 'Mitra'), kolom('anggota', 'Anggota Aktif', 'angka', True),
-            kolom('simpanan', 'Simpanan', 'rp', True), kolom('piutang', 'Piutang Pinjaman', 'rp', True),
+            kolom('piutang', 'Piutang Pinjaman', 'rp', True),
             kolom('pendapatan', 'Pendapatan Platform', 'rp', True), kolom('tunggakan', 'Tunggakan', 'rp', True)],
-            [{'mitra': m.name, 'anggota': aktif.get(m.id, [0])[0], 'simpanan': simpanan[m.id],
+            [{'mitra': m.name, 'anggota': aktif.get(m.id, [0])[0],
               'piutang': piutang[m.id], 'pendapatan': pendapatan[m.id], 'tunggakan': tunggakan[m.id],
               '_buka': buka(m)}
              for m in ctx['mitra']])
 
     # ------------------------------------------------------------------
-    # 2. Laporan simpanan
-    # ------------------------------------------------------------------
-    def _laporan_simpanan(self, ctx):
-        ta, tb = ctx['ta'], ctx['tb']
-        baris = self._baris_tagihan(ctx, sampai=tb, diterima=True)
-        sebelum = [b for b in baris if b['periode'].tanggal_mulai < ta]
-        masuk = [b for b in baris if b['periode'].tanggal_mulai >= ta]
-        awal = sum(b['simpanan'] for b in sebelum) - sum(self._penarikan(ctx, sampai=ctx['sebelum']))
-        diterima = {k: sum(b[k] for b in masuk) for k in ('simpok', 'simwa', 'simsula')}
-        total_masuk = sum(diterima.values())
-        total_tarik = sum(self._penarikan(ctx, sejak=ta, sampai=tb))
-        per_anggota = not ctx['per_mitra']
-
-        Line = self.env['koperasi.tagihan.line']
-        kunci = 'anggota_id' if per_anggota else 'mitra_id'
-        dasar = ctx['dm'] + [('tagihan_id.state', '!=', 'draft'), ('status', '=', 'dibayar'),
-                              ('tanggal_akui', '<=', tb)]
-        agregat = ['simpok:sum', 'simwa:sum', 'simsula:sum']
-        before = self._kelompok('koperasi.tagihan.line', dasar + [('tanggal_akui', '<', ta)], kunci, agregat)
-        within = self._kelompok('koperasi.tagihan.line', dasar + [('tanggal_akui', '>=', ta)], kunci, agregat)
-        tarik_before = self._penarikan(ctx, kunci, sampai=ctx['sebelum'])
-        tarik_within = self._penarikan(ctx, kunci, sejak=ta, sampai=tb)
-        if per_anggota:
-            Anggota = self.env['koperasi.anggota']
-            sasaran = Anggota.search(ctx['dm'] + [('state', '=', 'aktif')]) | Anggota.browse(
-                set(before) | set(within) | set(tarik_before) | set(tarik_within))
-            nama = lambda r: (r.name, r.nomor_anggota or '')
-            label = _('Simpanan per Anggota')
-            kolom_awal = [kolom('nama', 'Anggota'), kolom('kode', 'No. Anggota', 'kode')]
-        else:
-            sasaran = ctx['mitra']
-            nama = lambda r: (r.name, r.kode or '')
-            label = _('Simpanan per Mitra')
-            kolom_awal = [kolom('nama', 'Mitra'), kolom('kode', 'Kode', 'kode')]
-        rows = []
-        for r in sasaran:
-            b = before.get(r.id, [0, 0, 0])
-            w = within.get(r.id, [0, 0, 0])
-            saldo_awal = sum(b) - sum(tarik_before.get(r.id, [0]))
-            ditarik = sum(tarik_within.get(r.id, [0]))
-            rows.append({
-                'nama': nama(r)[0], 'kode': nama(r)[1], 'awal': saldo_awal, 'simpok': w[0], 'simwa': w[1],
-                'simsula': w[2], 'diterima': sum(w), 'ditarik': ditarik,
-                'akhir': saldo_awal + sum(w) - ditarik, '_buka': buka(r)})
-        rows.sort(key=lambda x: -x['akhir'])
-        tabel = bagian(label, kolom_awal + [
-            kolom('awal', 'Saldo Awal', 'rp', True), kolom('simpok', 'Pokok', 'rp', True),
-            kolom('simwa', 'Wajib', 'rp', True), kolom('simsula', 'Sukarela', 'rp', True),
-            kolom('diterima', 'Diterima', 'rp', True), kolom('ditarik', 'Ditarik', 'rp', True),
-            kolom('akhir', 'Saldo Akhir', 'rp', True)], rows)
-
-        per = {p.id: {'periode': p.name, 'simpok': 0, 'simwa': 0, 'simsula': 0, 'ditarik': 0} for p in ctx['periode_ids']}
-        for p_id, nilai in self._penarikan(ctx, 'periode_id', ta, tb).items():
-            if p_id in per:
-                per[p_id]['ditarik'] += sum(nilai)
-        for b in masuk:
-            if b['periode'].id in per:
-                for k in ('simpok', 'simwa', 'simsula'):
-                    per[b['periode'].id][k] += b[k]
-        saldo, per_periode = awal, []
-        for v in per.values():
-            v['diterima'] = v['simpok'] + v['simwa'] + v['simsula']
-            saldo += v['diterima'] - v['ditarik']
-            v['saldo'] = saldo
-            per_periode.append(v)
-        tabel_periode = bagian(_('Penerimaan Simpanan per Periode'), [
-            kolom('periode', 'Periode'), kolom('simpok', 'Pokok', 'rp', True), kolom('simwa', 'Wajib', 'rp', True),
-            kolom('simsula', 'Sukarela', 'rp', True), kolom('diterima', 'Diterima', 'rp', True),
-            kolom('ditarik', 'Ditarik', 'rp', True), kolom('saldo', 'Saldo Kumulatif', 'rp')], per_periode, catatan=_(
-            'Saldo kumulatif = saldo awal %s ditambah penerimaan dan dikurangi penarikan tiap periode.', self._rp(awal)))
-        return {
-            'judul': _('Laporan Simpanan'),
-            'subjudul': _('Saldo dan penerimaan simpanan pokok, wajib, dan sukarela'),
-            'ringkasan': [
-                {'label': _('Saldo Awal'), 'nilai': awal, 'tipe': 'rp', 'sub': _('sebelum %s', ctx['p_dari'].name)},
-                {'label': _('Simpanan Diterima'), 'nilai': total_masuk, 'tipe': 'rp', 'sub': ctx['periode_label']},
-                {'label': _('Simpanan Ditarik'), 'nilai': total_tarik, 'tipe': 'rp', 'sub': ctx['periode_label']},
-                {'label': _('Saldo Akhir'), 'nilai': awal + total_masuk - total_tarik, 'tipe': 'rp', 'sub': _('akhir %s', ctx['p_sampai'].name)},
-                {'label': _('Pokok / Wajib / Sukarela'), 'nilai': None, 'tipe': 'teks',
-                 'sub': ' / '.join(self._rp(diterima[k]) for k in ('simpok', 'simwa', 'simsula'))},
-            ],
-            'bagian': [tabel, tabel_periode],
-            'catatan': self._catatan_umum() + [
-                _('Simpanan dihitung dari tagihan yang sudah divalidasi Dibayar, menurut periode pembayarannya: '
-                  'tunggakan yang dibayar belakangan masuk ke periode saat dibayar.'),
-                _('Penarikan dihitung menurut tanggal pembayarannya.')],
-        }
-
-    # ------------------------------------------------------------------
-    # 3. Laporan pinjaman
+    # 2. Laporan pinjaman
     # ------------------------------------------------------------------
     def _laporan_pinjaman(self, ctx):
         pinjaman = self._pinjaman_rinci(ctx)
@@ -717,7 +584,7 @@ class KoperasiLaporan(models.AbstractModel):
             catatan=_('Keadaan saat ini, tidak terpengaruh oleh pilihan periode.')))
         return {
             'judul': _('Tagihan & Kolektibilitas'),
-            'subjudul': _('Penagihan dan pembayaran simpanan serta angsuran pinjaman'),
+            'subjudul': _('Penagihan dan pembayaran angsuran pinjaman'),
             'ringkasan': [
                 {'label': _('Ditagihkan'), 'nilai': ditagihkan, 'tipe': 'rp', 'sub': ctx['periode_label']},
                 {'label': _('Diterima'), 'nilai': diterima, 'tipe': 'rp', 'sub': _('dibayar pada periodenya')},
@@ -728,75 +595,37 @@ class KoperasiLaporan(models.AbstractModel):
             ],
             'bagian': bagian_laporan,
             'catatan': self._catatan_umum() + [
-                _('Hanya tagihan yang sudah ditagihkan (bukan Draft). Jumlah = simpanan + angsuran pokok + angsuran jasa; tunggakan terbawa tidak dihitung dua kali.')],
+                _('Hanya tagihan yang sudah ditagihkan (bukan Draft). Jumlah = angsuran pokok + angsuran jasa; tunggakan terbawa tidak dihitung dua kali.')],
         }
 
     # ------------------------------------------------------------------
-    # 5. Buku simpanan anggota
+    # 4. Riwayat anggota
     # ------------------------------------------------------------------
     def _laporan_anggota(self, ctx):
         a = ctx['anggota']
         if not a:
-            return {'judul': _('Buku Simpanan Anggota'), 'subjudul': _('Mutasi simpanan dan pinjaman satu anggota'),
+            return {'judul': _('Riwayat Anggota'), 'subjudul': _('Riwayat tagihan dan pinjaman satu anggota'),
                     'ringkasan': [], 'bagian': [], 'catatan': [], 'perlu_anggota': True}
         ta, tb = ctx['ta'], ctx['tb']
         Line = self.env['koperasi.tagihan.line']
         lines = Line.search([('anggota_id', '=', a.id), ('tagihan_id.state', '!=', 'draft'),
-                             ('tagihan_id.periode', '<=', tb)]).sorted(lambda l: (l.periode, l.id))
+                             ('tagihan_id.periode', '>=', ta), ('tagihan_id.periode', '<=', tb)]
+                            ).sorted(lambda l: (l.periode, l.id))
         label = dict(STATUS_BARIS)
-        simpanan = lambda l: l.simpok + l.simwa + l.simsula
-        # Simpanan menambah saldo pada periode pengakuannya. Baris yang dibayar belakangan
-        # tampil dua kali: Belum Dibayar di periode tagihannya, lalu pelunasan di periode bayarnya.
-        tarik = self.env['koperasi.penarikan'].search(
-            [('anggota_id', '=', a.id), ('state', '=', 'dibayar'), ('tanggal_bayar', '<=', tb)])
-        saldo = sum(simpanan(l) for l in lines if l.status == 'dibayar' and l.tanggal_akui < ta) \
-            - sum(t.total for t in tarik if t.tanggal_bayar < ta)
-        awal = saldo
-        rows = [{'periode': _('Saldo awal'), 'simpok': None, 'simwa': None, 'simsula': None, 'diterima': None,
-                 'saldo': saldo, 'status': '', '_gaya': 'judul'}]
-        mutasi_baris = []  # (tanggal, urutan, baris tagihan, pelunasan susulan?)
+        rows, total_angsuran = [], 0
         for l in lines:
             tepat = l.status == 'dibayar' and l.periode_akui_id == l.periode_id
-            if l.periode >= ta:
-                mutasi_baris.append((l.periode, 1, l, False))
-            if l.status == 'dibayar' and not tepat and ta <= l.tanggal_akui <= tb:
-                mutasi_baris.append((l.tanggal_akui, 0, l, True))
-        # penarikan: setelah tagihan pada periode yang sama
-        for t in tarik:
-            if t.tanggal_bayar >= ta:
-                mutasi_baris.append((t.periode_id.tanggal_mulai, 2, t, None))
-        masuk = [0, 0, 0]
-        total_tarik = 0
-        label_tarik = {'sukarela': _('penarikan sukarela'), 'keluar': _('keluar dari keanggotaan')}
-        for _tgl, _urut, l, pelunasan in sorted(mutasi_baris, key=lambda x: (x[0], x[1], x[2].id)):
-            if pelunasan is None:
-                saldo -= l.total
-                total_tarik += l.total
-                rows.append({'periode': '%s (%s)' % (l.periode_id.name, label_tarik[l.jenis]), 'simpok': -l.simpok or 0,
-                             'simwa': -l.simwa or 0, 'simsula': -l.simsula or 0, 'diterima': -l.total, 'saldo': saldo,
-                             'status': _('Ditarik'), '_buka': buka(l)})
-                continue
-            tepat = l.status == 'dibayar' and l.periode_akui_id == l.periode_id
-            masuk_saldo = pelunasan or tepat
-            diterima = simpanan(l) if masuk_saldo else 0
-            saldo += diterima
-            for i, v in enumerate((l.simpok, l.simwa, l.simsula)):
-                masuk[i] += v if masuk_saldo else 0
-            if pelunasan:
-                nama, status = _('%(bayar)s (tunggakan %(asal)s)', bayar=l.periode_akui_id.name, asal=l.periode_id.name), label['dibayar']
-            else:
-                nama = l.periode_id.name
-                status = label['belum'] if l.status == 'dibayar' and not tepat else label.get(l.status, l.status)
-            rows.append({'periode': nama, 'simpok': l.simpok, 'simwa': l.simwa, 'simsula': l.simsula,
-                         'diterima': diterima, 'saldo': saldo, 'status': status})
-        mutasi = bagian(_('Mutasi Simpanan'), [
-            kolom('periode', 'Periode'), kolom('simpok', 'Pokok', 'rp'), kolom('simwa', 'Wajib', 'rp'),
-            kolom('simsula', 'Sukarela', 'rp'), kolom('diterima', 'Mutasi Saldo', 'rp', True),
-            kolom('saldo', 'Saldo', 'rp'), kolom('status', 'Status Bayar', 'status')], rows, catatan=_(
-            'Jumlah Pokok/Wajib/Sukarela adalah yang ditagihkan; saldo hanya bertambah bila status Dibayar. '
-            'Tagihan yang dibayar belakangan tercatat Belum Dibayar di periodenya, lalu menambah saldo pada '
-            'baris "tunggakan" di periode saat dibayar. Penarikan mengurangi saldo dan tampil sebagai angka negatif.'),
-            kosong=_('Belum ada tagihan.'))
+            status = label['belum'] if l.status == 'dibayar' and not tepat else label.get(l.status, l.status)
+            if l.status == 'dibayar':
+                total_angsuran += l.angsuran_pokok + l.angsuran_jasa
+            rows.append({
+                'periode': l.periode_id.name, 'angsuran_pokok': l.angsuran_pokok, 'angsuran_jasa': l.angsuran_jasa,
+                'tunggakan': l.tunggakan, 'total': l.total, 'status': status, '_buka': buka(l)})
+        riwayat = bagian(_('Riwayat Tagihan'), [
+            kolom('periode', 'Periode'), kolom('angsuran_pokok', 'Angsuran Pokok', 'rp', True),
+            kolom('angsuran_jasa', 'Angsuran Jasa', 'rp', True), kolom('tunggakan', 'Tunggakan Dibawa', 'rp', True),
+            kolom('total', 'Jumlah', 'rp', True), kolom('status', 'Status Bayar', 'status')], rows,
+            kosong=_('Tidak ada tagihan pada periode ini.'))
 
         pinjaman = a.pinjaman_ids.filtered(lambda p: p.state in ('berjalan', 'lunas')).sorted('tanggal_cair')
         daftar = [{'nomor': p.name, 'produk': p.produk_id.name, 'pokok': p.pokok, 'tenor': p.tenor,
@@ -822,13 +651,10 @@ class KoperasiLaporan(models.AbstractModel):
             kolom('status', 'Status', 'status')], jadwal, kosong=_('Tidak ada angsuran pada periode ini.'))
         tunggakan = self._tunggakan_per_anggota(dict(ctx, dm=[('anggota_id', '=', a.id)]))
         return {
-            'judul': _('Buku Simpanan Anggota'),
+            'judul': _('Riwayat Anggota'),
             'subjudul': '%s%s' % (a.name, ' — %s' % a.nomor_anggota if a.nomor_anggota else ''),
             'ringkasan': [
-                {'label': _('Saldo Awal'), 'nilai': awal, 'tipe': 'rp', 'sub': _('sebelum %s', ctx['p_dari'].name)},
-                {'label': _('Simpanan Diterima'), 'nilai': sum(masuk), 'tipe': 'rp', 'sub': ctx['periode_label']},
-                {'label': _('Simpanan Ditarik'), 'nilai': total_tarik, 'tipe': 'rp', 'sub': ctx['periode_label']},
-                {'label': _('Saldo Akhir'), 'nilai': saldo, 'tipe': 'rp', 'sub': _('akhir %s', ctx['p_sampai'].name)},
+                {'label': _('Angsuran Dibayar'), 'nilai': total_angsuran, 'tipe': 'rp', 'sub': ctx['periode_label']},
                 {'label': _('Sisa Pinjaman'), 'nilai': sum(pinjaman.mapped('sisa_pokok')), 'tipe': 'rp', 'sub': _('saat ini')},
                 {'label': _('Tunggakan'), 'nilai': sum(tunggakan.values()), 'tipe': 'rp', 'sub': _('saat ini')},
             ],
@@ -837,17 +663,17 @@ class KoperasiLaporan(models.AbstractModel):
                 (_('Mitra'), a.mitra_id.name), (_('Jabatan'), a.jabatan or '-'),
                 (_('Bergabung'), a.tanggal_bergabung.strftime('%d/%m/%Y') if a.tanggal_bergabung else '-')] + (
                 [(_('Keluar'), a.tanggal_keluar.strftime('%d/%m/%Y'))] if a.tanggal_keluar else []),
-            'bagian': [mutasi, tabel_pinjaman, tabel_angsuran],
+            'bagian': [riwayat, tabel_pinjaman, tabel_angsuran],
             'catatan': self._catatan_umum(),
         }
 
     # ------------------------------------------------------------------
-    # 6. Umur tunggakan & kualitas pinjaman
+    # 5. Umur tunggakan & kualitas pinjaman
     # ------------------------------------------------------------------
     def _laporan_kualitas(self, ctx):
         """Tunggakan dikelompokkan menurut lamanya, dan pinjaman menurut kolektibilitasnya.
 
-        Tunggakan = komponen asli (simpanan + angsuran) semua baris tagihan berstatus Belum Dibayar.
+        Tunggakan = angsuran (pokok + jasa) semua baris tagihan berstatus Belum Dibayar.
         Jumlahnya sama dengan definisi tunggakan di dashboard, karena baris yang sudah ditagih ulang
         tetap berstatus Belum Dibayar sampai baris pembawanya dibayar."""
         acuan = ctx['p_sampai'].tanggal_mulai
@@ -858,37 +684,32 @@ class KoperasiLaporan(models.AbstractModel):
         Line = self.env['koperasi.tagihan.line']
         lines = Line.search(ctx['dm'] + [
             ('status', '=', 'belum'), ('tagihan_id.state', '!=', 'draft'), ('tagihan_id.periode', '<=', acuan)])
-        kel = [{'umur': label, 'anggota': set(), 'simpanan': 0, 'angsuran': 0} for label in KELOMPOK_UMUR]
+        kel = [{'umur': label, 'anggota': set(), 'angsuran': 0} for label in KELOMPOK_UMUR]
         per_mitra = {m.id: {'mitra': m.name, 'k0': 0, 'k1': 0, 'k2': 0, 'k3': 0, 'total': 0,
                             'anggota': set(), '_buka': buka(m)} for m in ctx['mitra']}
         per_anggota = {}
         for l in lines:
             u = min(max(umur(l.periode), 0), 3)
-            simpanan = l.simpok + l.simwa + l.simsula
             angsuran = l.angsuran_pokok + l.angsuran_jasa
             kel[u]['anggota'].add(l.anggota_id.id)
-            kel[u]['simpanan'] += simpanan
             kel[u]['angsuran'] += angsuran
             m = per_mitra.get(l.mitra_id.id)
             if m:
-                m['k%d' % u] += simpanan + angsuran
-                m['total'] += simpanan + angsuran
+                m['k%d' % u] += angsuran
+                m['total'] += angsuran
                 m['anggota'].add(l.anggota_id.id)
             a = per_anggota.setdefault(l.anggota_id, {'tertua': l.periode, 'periode': l.periode_id.name,
-                                                      'n': 0, 'simpanan': 0, 'angsuran': 0})
+                                                      'n': 0, 'angsuran': 0})
             if l.periode < a['tertua']:
                 a['tertua'], a['periode'] = l.periode, l.periode_id.name
             a['n'] += 1
-            a['simpanan'] += simpanan
             a['angsuran'] += angsuran
-        total = sum(k['simpanan'] + k['angsuran'] for k in kel)
+        total = sum(k['angsuran'] for k in kel)
         tabel_umur = bagian(_('Umur Tunggakan'), [
             kolom('umur', 'Lama Menunggak'), kolom('anggota', 'Anggota', 'angka'),
-            kolom('simpanan', 'Simpanan', 'rp', True), kolom('angsuran', 'Angsuran Pinjaman', 'rp', True),
-            kolom('total', 'Jumlah', 'rp', True), kolom('persen', 'Porsi', 'persen')],
-            [{'umur': k['umur'], 'anggota': len(k['anggota']), 'simpanan': k['simpanan'], 'angsuran': k['angsuran'],
-              'total': k['simpanan'] + k['angsuran'],
-              'persen': round((k['simpanan'] + k['angsuran']) * 100 / total, 1) if total else None} for k in kel],
+            kolom('angsuran', 'Angsuran Pinjaman', 'rp', True), kolom('persen', 'Porsi', 'persen')],
+            [{'umur': k['umur'], 'anggota': len(k['anggota']), 'angsuran': k['angsuran'],
+              'persen': round(k['angsuran'] * 100 / total, 1) if total else None} for k in kel],
             catatan=_('Lama menunggak dihitung dari periode tagihan sampai %s. Satu anggota bisa muncul '
                       'di lebih dari satu kelompok.', ctx['p_sampai'].name))
         bagian_laporan = [tabel_umur]
@@ -902,12 +723,10 @@ class KoperasiLaporan(models.AbstractModel):
         bagian_laporan.append(bagian(_('Anggota Menunggak'), [
             kolom('nomor', 'No. Anggota', 'kode'), kolom('nama', 'Anggota'), kolom('mitra', 'Mitra'),
             kolom('periode', 'Sejak Periode'), kolom('umur', 'Umur (bulan)', 'angka'),
-            kolom('n', 'Tagihan', 'angka'), kolom('simpanan', 'Simpanan', 'rp', True),
-            kolom('angsuran', 'Angsuran Pinjaman', 'rp', True), kolom('total', 'Jumlah', 'rp', True)],
+            kolom('n', 'Tagihan', 'angka'), kolom('angsuran', 'Angsuran Pinjaman', 'rp', True)],
             [{'nomor': a.nomor_anggota or '', 'nama': a.name, 'mitra': a.mitra_id.name, 'periode': v['periode'],
-              'umur': max(umur(v['tertua']), 0), 'n': v['n'], 'simpanan': v['simpanan'], 'angsuran': v['angsuran'],
-              'total': v['simpanan'] + v['angsuran'], '_buka': buka(a)}
-             for a, v in sorted(per_anggota.items(), key=lambda x: (x[1]['tertua'], -(x[1]['simpanan'] + x[1]['angsuran'])))],
+              'umur': max(umur(v['tertua']), 0), 'n': v['n'], 'angsuran': v['angsuran'], '_buka': buka(a)}
+             for a, v in sorted(per_anggota.items(), key=lambda x: (x[1]['tertua'], -x[1]['angsuran']))],
             kosong=_('Tidak ada anggota yang menunggak.')))
 
         # ---- Kualitas pinjaman: menurut umur angsuran tertua yang belum dibayar
@@ -958,7 +777,7 @@ class KoperasiLaporan(models.AbstractModel):
             'ringkasan': [
                 {'label': _('Total Tunggakan'), 'nilai': total, 'tipe': 'rp', 'sub': _('per %s', ctx['p_sampai'].name)},
                 {'label': _('Anggota Menunggak'), 'nilai': len(per_anggota), 'tipe': 'angka', 'sub': _('orang')},
-                {'label': _('Menunggak 3 Bulan+'), 'nilai': kel[3]['simpanan'] + kel[3]['angsuran'], 'tipe': 'rp',
+                {'label': _('Menunggak 3 Bulan+'), 'nilai': kel[3]['angsuran'], 'tipe': 'rp',
                  'sub': _('%d anggota', len(kel[3]['anggota']))},
                 {'label': _('Pinjaman Bermasalah'), 'nilai': round(bermasalah * 100 / total_sisa, 1) if total_sisa else None,
                  'tipe': 'persen', 'sub': _('%s dari sisa pokok', self._rp(bermasalah)) if total_sisa else _('belum ada pinjaman berjalan')},
@@ -970,11 +789,10 @@ class KoperasiLaporan(models.AbstractModel):
         }
 
     # ------------------------------------------------------------------
-    # 7. Proyeksi penerimaan
+    # 6. Proyeksi penerimaan
     # ------------------------------------------------------------------
     def _laporan_proyeksi(self, ctx):
-        """Penerimaan yang diharapkan pada bulan-bulan mendatang, dari jadwal angsuran dan simpanan."""
-        cfg = self.env['koperasi.pengaturan']._get()
+        """Penerimaan yang diharapkan pada bulan-bulan mendatang, dari jadwal angsuran pinjaman."""
         mulai = ctx['p_sampai'].tanggal_mulai + relativedelta(months=1)
         bulan = [mulai + relativedelta(months=i) for i in range(BULAN_PROYEKSI)]
         akhir = bulan[-1] + relativedelta(months=1, days=-1)
@@ -984,32 +802,19 @@ class KoperasiLaporan(models.AbstractModel):
         # Angsuran yang belum ditagihkan; yang jatuh temponya sudah lewat masuk ke bulan pertama
         dasar = [('mitra_id', 'in', ids), ('pinjaman_id.state', '=', 'berjalan'),
                  ('status', '=', 'terjadwal'), ('jatuh_tempo', '<=', akhir)]
-        per = {(d.year, d.month): {'periode': nama(d), 'pokok': 0, 'jasa': 0, 'simwa': 0, 'simsula': 0, 'simpok': 0}
-               for d in bulan}
+        per = {(d.year, d.month): {'periode': nama(d), 'pokok': 0, 'jasa': 0} for d in bulan}
         for tgl, pokok, jasa in self.env['koperasi.pinjaman.angsuran']._read_group(
                 dasar, ['jatuh_tempo:month'], ['pokok:sum', 'jasa:sum']):
             kunci = (tgl.year, tgl.month) if tgl >= mulai else (mulai.year, mulai.month)
             per[kunci]['pokok'] += pokok or 0
             per[kunci]['jasa'] += jasa or 0
 
-        Anggota = self.env['koperasi.anggota']
-        aktif = Anggota.search(ctx['dm'] + [('state', '=', 'aktif')])
-        sudah_simpok = self.env['koperasi.tagihan.line'].search(
-            [('anggota_id', 'in', aktif.ids), ('simpok', '>', 0)]).anggota_id
-        belum_simpok = aktif - sudah_simpok
-        simsula = sum(aktif.mapped('simsula'))
-        for i, d in enumerate(bulan):
-            v = per[(d.year, d.month)]
-            v['simwa'] = len(aktif) * cfg.simwa
-            v['simsula'] = simsula
-            v['simpok'] = len(belum_simpok) * cfg.simpok if i == 0 else 0
-
         berjalan = self._kelompok('koperasi.pinjaman', ctx['dm'] + [('state', '=', 'berjalan')],
                                   'mitra_id', ['__count', 'sisa_pokok:sum'])
         piutang = sum(v[1] for v in berjalan.values())
         sisa, rows = piutang, []
         for v in per.values():
-            v['total'] = v['pokok'] + v['jasa'] + v['simwa'] + v['simsula'] + v['simpok']
+            v['total'] = v['pokok'] + v['jasa']
             sisa -= v['pokok']
             v['piutang'] = sisa
             rows.append(v)
@@ -1018,37 +823,32 @@ class KoperasiLaporan(models.AbstractModel):
         total_pokok = sum(v['pokok'] for v in rows)
         tabel = bagian(_('Proyeksi per Bulan'), [
             kolom('periode', 'Periode'), kolom('pokok', 'Angsuran Pokok', 'rp', True), kolom('jasa', 'Jasa', 'rp', True),
-            kolom('simwa', 'Simpanan Wajib', 'rp', True), kolom('simsula', 'Simpanan Sukarela', 'rp', True),
-            kolom('simpok', 'Simpanan Pokok', 'rp', True), kolom('total', 'Total Penerimaan', 'rp', True),
-            kolom('piutang', 'Sisa Piutang', 'rp')], rows,
+            kolom('total', 'Total Penerimaan', 'rp', True), kolom('piutang', 'Sisa Piutang', 'rp')], rows,
             catatan=_('Sisa piutang = sisa pokok saat ini dikurangi angsuran pokok yang dijadwalkan.'))
         bagian_laporan = [tabel]
 
         if ctx['per_mitra']:
             ang_mitra = self._kelompok('koperasi.pinjaman.angsuran', dasar, 'mitra_id', ['pokok:sum', 'jasa:sum'])
+            Anggota = self.env['koperasi.anggota']
+            aktif = self._kelompok('koperasi.anggota', ctx['dm'] + [('state', '=', 'aktif')], 'mitra_id', ['__count'])
             rows_mitra = []
             for m in ctx['mitra']:
-                anggota_m = aktif.filtered(lambda a: a.mitra_id == m)
-                simpanan = (len(anggota_m) * cfg.simwa + sum(anggota_m.mapped('simsula'))) * BULAN_PROYEKSI \
-                    + len(anggota_m & belum_simpok) * cfg.simpok
                 pokok, jasa = ang_mitra.get(m.id, (0, 0))
                 rows_mitra.append({
-                    'mitra': m.name, 'anggota': len(anggota_m), 'pinjaman': berjalan.get(m.id, (0, 0))[0],
-                    'pokok': pokok, 'jasa': jasa, 'simpanan': simpanan, 'total': pokok + jasa + simpanan,
-                    '_buka': buka(m)})
+                    'mitra': m.name, 'anggota': aktif.get(m.id, [0])[0], 'pinjaman': berjalan.get(m.id, (0, 0))[0],
+                    'pokok': pokok, 'jasa': jasa, 'total': pokok + jasa, '_buka': buka(m)})
             bagian_laporan.append(bagian(_('Proyeksi per Mitra (%d bulan)', BULAN_PROYEKSI), [
                 kolom('mitra', 'Mitra'), kolom('anggota', 'Anggota Aktif', 'angka', True),
                 kolom('pinjaman', 'Pinjaman Berjalan', 'angka', True), kolom('pokok', 'Angsuran Pokok', 'rp', True),
-                kolom('jasa', 'Jasa', 'rp', True), kolom('simpanan', 'Simpanan', 'rp', True),
-                kolom('total', 'Total Penerimaan', 'rp', True)], rows_mitra))
+                kolom('jasa', 'Jasa', 'rp', True), kolom('total', 'Total Penerimaan', 'rp', True)], rows_mitra))
 
         menunggu = sum(self._jumlah('koperasi.tagihan.line', ctx['dm'] + [
             ('status', '=', 'menunggu'), ('tagihan_id.state', '!=', 'draft')],
-            ['simpok:sum', 'simwa:sum', 'simsula:sum', 'angsuran_pokok:sum', 'angsuran_jasa:sum']))
+            ['angsuran_pokok:sum', 'angsuran_jasa:sum']))
         tunggakan = sum(self._tunggakan_per_anggota(ctx).values())
         return {
             'judul': _('Proyeksi Penerimaan'),
-            'subjudul': _('Penerimaan yang diharapkan %d bulan ke depan dari angsuran terjadwal dan simpanan',
+            'subjudul': _('Penerimaan yang diharapkan %d bulan ke depan dari angsuran pinjaman terjadwal',
                           BULAN_PROYEKSI),
             'periode_label': '%s – %s' % (nama(bulan[0]), nama(bulan[-1])),
             'ringkasan': [
@@ -1062,14 +862,13 @@ class KoperasiLaporan(models.AbstractModel):
             ],
             'bagian': bagian_laporan,
             'catatan': self._catatan_umum() + [
-                _('Asumsi: semua tagihan dibayar tepat waktu, jumlah anggota dan besaran simpanan tetap seperti '
-                  'saat ini, dan tidak ada pinjaman baru.'),
+                _('Asumsi: semua tagihan dibayar tepat waktu dan tidak ada pinjaman baru.'),
                 _('Angsuran dihitung dari jadwal pinjaman berjalan yang belum ditagihkan. Tagihan yang sudah '
                   'ditagihkan tetapi belum dibayar tidak termasuk; lihat "Belum Diterima Saat Ini".')],
         }
 
     # ------------------------------------------------------------------
-    # 8. Kartu pinjaman (per dokumen, dibuka dari form pinjaman)
+    # 7. Kartu pinjaman (per dokumen, dibuka dari form pinjaman)
     # ------------------------------------------------------------------
     def _laporan_kartu(self, ctx):
         p = ctx['pinjaman']

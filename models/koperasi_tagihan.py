@@ -14,36 +14,12 @@ STATUS_BARIS = [
 ]
 
 # Perubahan field ini hanya boleh saat tagihan Draft, karena menentukan nominal tagihan.
-FIELD_NOMINAL = {
-    'tagihan_id', 'anggota_id', 'simpok', 'simwa', 'simsula', 'tunggakan',
-    'angsuran_pokok', 'angsuran_jasa',
-}
-
-
-class KoperasiSimsula(models.Model):
-    """Besaran simpanan sukarela per anggota beserta periode mulai berlakunya.
-
-    Dibuat otomatis oleh koperasi.anggota saat field simsula berubah.
-    """
-    _name = 'koperasi.simsula'
-    _description = 'Riwayat Simpanan Sukarela Anggota'
-    _order = 'berlaku_mulai desc, id desc'
-    _rec_name = 'periode_id'
-
-    anggota_id = fields.Many2one(
-        'koperasi.anggota', string='Anggota', required=True, index=True,
-        ondelete='cascade')
-    periode_id = fields.Many2one(
-        'koperasi.periode', string='Berlaku Mulai Periode', required=True,
-        ondelete='restrict')
-    berlaku_mulai = fields.Date(related='periode_id.tanggal_mulai', store=True)
-    currency_id = fields.Many2one(related='anggota_id.currency_id')
-    nominal = fields.Monetary('Simpanan Sukarela / Bulan')
+FIELD_NOMINAL = {'tagihan_id', 'anggota_id', 'tunggakan', 'angsuran_pokok', 'angsuran_jasa'}
 
 
 class KoperasiTagihan(models.Model):
     _name = 'koperasi.tagihan'
-    _description = 'Tagihan Mitra'  # simpanan + angsuran pinjaman
+    _description = 'Tagihan Mitra'  # angsuran pinjaman anggota
     _inherit = ['mail.thread', 'koperasi.mata.uang.mixin']
     _order = 'periode desc, id desc'
 
@@ -66,9 +42,6 @@ class KoperasiTagihan(models.Model):
 
     line_ids = fields.One2many('koperasi.tagihan.line', 'tagihan_id', string='Rincian')
     jumlah_anggota = fields.Integer('Jumlah Anggota', compute='_compute_total', store=True)
-    total_simpok = fields.Monetary('Total Simpanan Pokok', compute='_compute_total', store=True)
-    total_simwa = fields.Monetary('Total Simpanan Wajib', compute='_compute_total', store=True)
-    total_simsula = fields.Monetary('Total Simpanan Sukarela', compute='_compute_total', store=True)
     total_angsuran_pokok = fields.Monetary(
         'Total Angsuran Pokok', compute='_compute_total', store=True)
     total_angsuran_jasa = fields.Monetary(
@@ -83,19 +56,14 @@ class KoperasiTagihan(models.Model):
     _mitra_periode_uniq = models.Constraint(
         'UNIQUE(mitra_id, periode_id)', 'Tagihan mitra ini untuk periode tersebut sudah ada.')
 
-    @api.depends('line_ids.simpok', 'line_ids.simwa', 'line_ids.simsula', 'line_ids.tunggakan',
-                 'line_ids.angsuran_pokok', 'line_ids.angsuran_jasa')
+    @api.depends('line_ids.tunggakan', 'line_ids.angsuran_pokok', 'line_ids.angsuran_jasa')
     def _compute_total(self):
         for r in self:
             r.jumlah_anggota = len(r.line_ids)
-            r.total_simpok = sum(r.line_ids.mapped('simpok'))
-            r.total_simwa = sum(r.line_ids.mapped('simwa'))
-            r.total_simsula = sum(r.line_ids.mapped('simsula'))
             r.total_angsuran_pokok = sum(r.line_ids.mapped('angsuran_pokok'))
             r.total_angsuran_jasa = sum(r.line_ids.mapped('angsuran_jasa'))
             r.total_tunggakan = sum(r.line_ids.mapped('tunggakan'))
-            r.total = (r.total_simpok + r.total_simwa + r.total_simsula
-                       + r.total_angsuran_pokok + r.total_angsuran_jasa + r.total_tunggakan)
+            r.total = r.total_angsuran_pokok + r.total_angsuran_jasa + r.total_tunggakan
 
     @api.depends('line_ids.status', 'line_ids.total')
     def _compute_validasi(self):
@@ -127,27 +95,26 @@ class KoperasiTagihan(models.Model):
     # Pembuatan tagihan
     # ------------------------------------------------------------------
     def _siapkan_baris(self):
-        """Nilai baris tagihan: satu per anggota aktif mitra pada periode ini."""
+        """Nilai baris tagihan: satu per anggota aktif mitra pada periode ini yang punya
+        angsuran jatuh tempo atau tunggakan belum lunas. Anggota tanpa pinjaman berjalan
+        dan tanpa tunggakan tidak ditagih."""
         self.ensure_one()
-        cfg = self.env['koperasi.pengaturan']._get()
         anggota = self.env['koperasi.anggota'].search([
             ('mitra_id', '=', self.mitra_id.id),
             ('state', '=', 'aktif'),
             ('tanggal_bergabung', '<=', self.periode_id.tanggal_akhir),
         ], order='name')
-        # Simpok hanya sekali: lewati anggota yang sudah pernah ditagih simpok.
-        # (Yang belum membayar tidak ditagih ulang di sini, tetapi lewat tunggakan.)
-        sudah_simpok = self.env['koperasi.tagihan.line'].search([
-            ('anggota_id', 'in', anggota.ids),
-            ('tagihan_id', '!=', self.id),
-            ('simpok', '>', 0),
-        ]).anggota_id
-        return [{
-            'anggota_id': a.id,
-            'simpok': 0 if a in sudah_simpok else cfg.simpok,
-            'simwa': cfg.simwa,
-            'simsula': a._simsula_pada(self.periode),
-        } for a in anggota]
+        if not anggota:
+            return []
+        punya_angsuran = set(self.env['koperasi.pinjaman.angsuran'].sudo().search([
+            ('anggota_id', 'in', anggota.ids), ('tagihan_line_id', '=', False),
+            ('pinjaman_id.state', '=', 'berjalan'), ('jatuh_tempo', '<=', self.periode),
+        ]).anggota_id.ids)
+        punya_tunggakan = set(self.env['koperasi.tagihan.line'].search([
+            ('anggota_id', 'in', anggota.ids), ('status', '=', 'belum'), ('dibawa_ke_id', '=', False),
+        ]).anggota_id.ids)
+        berhutang = punya_angsuran | punya_tunggakan
+        return [{'anggota_id': a.id} for a in anggota if a.id in berhutang]
 
     def _isi_baris(self, baris=None):
         """Buat baris rincian lalu muat angsuran pinjaman dan tunggakannya."""
@@ -178,8 +145,6 @@ class KoperasiTagihan(models.Model):
     def _cron_buat_tagihan(self):
         Periode = self.env['koperasi.periode']
         Periode._pastikan_ke_depan()  # supaya periode setahun ke depan selalu bisa dipilih
-        if not self.env['koperasi.pengaturan']._get().simwa:
-            return  # besaran belum diatur, jangan terbitkan tagihan kosong
         self._buat_tagihan(Periode._untuk_tanggal(fields.Date.context_today(self)))
 
     # ------------------------------------------------------------------
@@ -255,9 +220,6 @@ class KoperasiTagihanLine(models.Model):
     anggota_id = fields.Many2one(
         'koperasi.anggota', string='Anggota', required=True, index=True,
         ondelete='restrict', domain="[('mitra_id', '=', mitra_id)]")
-    simpok = fields.Monetary('Simpanan Pokok')
-    simwa = fields.Monetary('Simpanan Wajib')
-    simsula = fields.Monetary('Simpanan Sukarela')
     angsuran_pokok = fields.Monetary(
         'Angsuran Pokok', readonly=True,
         help='Angsuran pokok pinjaman anggota yang jatuh pada periode ini.')
@@ -293,13 +255,12 @@ class KoperasiTagihanLine(models.Model):
     _anggota_uniq = models.Constraint(
         'UNIQUE(tagihan_id, anggota_id)', 'Anggota sudah ada di tagihan ini.')
 
-    @api.depends('simpok', 'simwa', 'simsula', 'tunggakan', 'angsuran_pokok', 'angsuran_jasa')
+    @api.depends('tunggakan', 'angsuran_pokok', 'angsuran_jasa')
     def _compute_total(self):
         for r in self:
-            r.total = (r.simpok + r.simwa + r.simsula
-                       + r.angsuran_pokok + r.angsuran_jasa + r.tunggakan)
+            r.total = r.angsuran_pokok + r.angsuran_jasa + r.tunggakan
 
-    # Nominal menentukan saldo simpanan, jadi hanya boleh berubah saat Draft.
+    # Nominal menentukan jumlah tagihan, jadi hanya boleh berubah saat Draft.
     def _cek_draft(self):
         if any(r.tagihan_id.state != 'draft' for r in self):
             raise UserError(_('Rincian hanya dapat diubah saat tagihan berstatus Draft.'))

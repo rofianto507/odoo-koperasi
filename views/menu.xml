@@ -74,7 +74,7 @@
 
         <menuitem
             id="menu_koperasi_pengaturan_simpanan"
-            name="Pengaturan Simpanan"
+            name="Umum"
             parent="menu_koperasi_pengaturan"
             action="action_koperasi_pengaturan"
             sequence="10"/>

@@ -2,7 +2,7 @@
 <odoo>
     <data>
 
-        <!-- ============ Tagihan simpanan ============ -->
+        <!-- ============ Tagihan ============ -->
         <record id="view_koperasi_tagihan_list" model="ir.ui.view">
             <field name="name">koperasi.tagihan.list</field>
             <field name="model">koperasi.tagihan</field>
@@ -13,9 +13,6 @@
                     <field name="mitra_id"/>
                     <field name="periode_id"/>
                     <field name="jumlah_anggota"/>
-                    <field name="total_simpok" sum="Total" optional="hide"/>
-                    <field name="total_simwa" sum="Total" optional="hide"/>
-                    <field name="total_simsula" sum="Total" optional="hide"/>
                     <field name="total_angsuran_pokok" sum="Total" optional="hide"/>
                     <field name="total_angsuran_jasa" sum="Total" optional="hide"/>
                     <field name="total_tunggakan" sum="Total" optional="hide"/>
@@ -87,9 +84,6 @@
                                         <field name="dibawa_ke_id" column_invisible="1"/>
                                         <field name="anggota_id" options="{'no_create': True}"
                                                domain="[('mitra_id', '=', parent.mitra_id), ('state', '=', 'aktif')]"/>
-                                        <field name="simpok" sum="Total" optional="show"/>
-                                        <field name="simwa" sum="Total" optional="show"/>
-                                        <field name="simsula" sum="Total" optional="show"/>
                                         <field name="angsuran_pokok" sum="Total" optional="show"/>
                                         <field name="angsuran_jasa" sum="Total" optional="show"/>
                                         <field name="tunggakan" sum="Total" optional="show"/>
@@ -114,9 +108,6 @@
                                 </field>
                                 <group class="oe_subtotal_footer">
                                     <field name="currency_id" invisible="1"/>
-                                    <field name="total_simpok"/>
-                                    <field name="total_simwa"/>
-                                    <field name="total_simsula"/>
                                     <field name="total_angsuran_pokok"
                                            invisible="total_angsuran_pokok == 0 and total_angsuran_jasa == 0"/>
                                     <field name="total_angsuran_jasa"
@@ -184,9 +175,6 @@
                     <field name="periode_id"/>
                     <field name="tagihan_id"/>
                     <field name="anggota_id" optional="hide"/>
-                    <field name="simpok" sum="Total"/>
-                    <field name="simwa" sum="Total"/>
-                    <field name="simsula" sum="Total"/>
                     <field name="angsuran_pokok" sum="Total" optional="show"/>
                     <field name="angsuran_jasa" sum="Total" optional="show"/>
                     <field name="tunggakan" optional="show"/>
@@ -268,12 +256,8 @@
                             <h1><field name="name"/></h1>
                         </div>
                         <group>
-                            <group string="Besaran Simpanan">
-                                <field name="currency_id" invisible="1"/>
-                                <field name="simpok"/>
-                                <field name="simwa"/>
-                            </group>
                             <group string="Batas Potongan Gaji">
+                                <field name="currency_id" invisible="1"/>
                                 <field name="batas_potongan"/>
                                 <field name="plafon_kelipatan"/>
                             </group>
@@ -303,14 +287,9 @@
                             </group>
                         </group>
                         <p class="text-muted">
-                            Berlaku untuk semua anggota di semua mitra. Perubahan besaran simpanan
-                            dipakai mulai tagihan yang dibuat berikutnya; tagihan yang sudah ada tidak
-                            berubah. Simpanan sukarela diatur per anggota di form Anggota.
-                        </p>
-                        <p class="text-muted">
-                            Batas potongan gaji sudah termasuk simpanan. Sisanya menjadi angsuran
-                            maksimum pinjaman, yang menentukan plafon pinjaman anggota. Jasa, biaya
-                            admin, dan tenor diatur per produk di menu Produk Pinjaman.
+                            Batas potongan gaji menentukan angsuran maksimum pinjaman anggota, yang
+                            dipakai menghitung plafon. Jasa, biaya admin, dan tenor diatur per produk
+                            di menu Produk Pinjaman.
                         </p>
                     </sheet>
                     <chatter/>
@@ -319,7 +298,7 @@
         </record>
 
         <record id="action_koperasi_pengaturan" model="ir.actions.act_window">
-            <field name="name">Pengaturan Simpanan</field>
+            <field name="name">Pengaturan</field>
             <field name="res_model">koperasi.pengaturan</field>
             <field name="view_mode">form</field>
             <field name="res_id" ref="pengaturan_utama"/>

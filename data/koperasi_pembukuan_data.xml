@@ -46,25 +46,6 @@
         </record>
 
         <!-- Kewajiban -->
-        <record id="akun_simsula" model="koperasi.akun">
-            <field name="kode">2101</field>
-            <field name="name">Simpanan Sukarela Anggota</field>
-            <field name="jenis">kewajiban</field>
-            <field name="sistem" eval="True"/>
-        </record>
-        <!-- Simpanan pokok dan wajib adalah titipan anggota yang dikembalikan saat keluar: kewajiban -->
-        <record id="akun_simpok" model="koperasi.akun">
-            <field name="kode">2102</field>
-            <field name="name">Simpanan Pokok Anggota</field>
-            <field name="jenis">kewajiban</field>
-            <field name="sistem" eval="True"/>
-        </record>
-        <record id="akun_simwa" model="koperasi.akun">
-            <field name="kode">2103</field>
-            <field name="name">Simpanan Wajib Anggota</field>
-            <field name="jenis">kewajiban</field>
-            <field name="sistem" eval="True"/>
-        </record>
         <record id="akun_utang" model="koperasi.akun">
             <field name="kode">2201</field>
             <field name="name">Utang kepada Pihak Ketiga</field>
@@ -77,7 +58,7 @@
             <field name="name">Imbalan Anggota Terutang</field>
             <field name="jenis">kewajiban</field>
             <field name="sistem" eval="True"/>
-            <field name="keterangan">Imbalan simpanan yang sudah ditetapkan tetapi belum dibayarkan.</field>
+            <field name="keterangan">Imbalan yang sudah ditetapkan tetapi belum dibayarkan.</field>
         </record>
         <record id="akun_utang_mitra" model="koperasi.akun">
             <field name="kode">2302</field>
@@ -151,7 +132,7 @@
     </data>
 
     <data>
-        <!-- Tiap pembaruan: akun bawaan versi lama disesuaikan (simpanan pokok/wajib menjadi kewajiban) -->
+        <!-- Tiap pembaruan: akun bawaan versi lama disesuaikan -->
         <function model="koperasi.akun" name="_sesuaikan_bagan_akun"/>
         <!-- Tiap pembaruan: lengkapi jurnal otomatis untuk transaksi yang belum berjurnal -->
         <function model="koperasi.jurnal" name="_buat_jurnal_lama"/>

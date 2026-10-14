@@ -268,11 +268,6 @@ class KoperasiAnggota(models.Model):
             'foto': '/koperasi/portal/foto?v=%d' % int((self.write_date or fields.Datetime.now()).timestamp()),
         }
 
-    def _portal_saldo(self):
-        self.ensure_one()
-        return {'pokok': self.saldo_simpok, 'wajib': self.saldo_simwa, 'sukarela': self.saldo_simsula,
-                'total': self.saldo_total}
-
     def _portal_beranda(self):
         self.ensure_one()
         Line = self.env['koperasi.tagihan.line']
@@ -283,18 +278,11 @@ class KoperasiAnggota(models.Model):
         terakhir = ditagihkan.sorted(lambda l: (l.periode, l.id), reverse=True)[:1]
         aktivitas = []
         for l in ditagihkan.filtered(lambda l: l.status == 'dibayar'):
-            simpanan = l.simpok + l.simwa + l.simsula
             angsuran = l.angsuran_pokok + l.angsuran_jasa
             aktivitas.append({
                 'tanggal': l.tanggal_bayar or l.periode, 'ikon': 'fa-check-circle', 'warna': 'hijau',
                 'judul': _('Tagihan %s dibayar', l.periode_id.name),
-                'sub': _('simpanan %s', self._rp(simpanan)) + (
-                    _(' · angsuran %s', self._rp(angsuran)) if angsuran else ''),
-                'nilai': simpanan + angsuran})
-        for t in self.penarikan_ids.filtered(lambda t: t.state == 'dibayar'):
-            aktivitas.append({
-                'tanggal': t.tanggal_bayar, 'ikon': 'fa-sign-out', 'warna': 'jingga',
-                'judul': _('Penarikan simpanan'), 'sub': t.name, 'nilai': -t.total})
+                'sub': _('angsuran %s', self._rp(angsuran)), 'nilai': angsuran})
         for p in self.pinjaman_ids.filtered('tanggal_cair'):
             aktivitas.append({
                 'tanggal': p.tanggal_cair, 'ikon': 'fa-credit-card', 'warna': 'biru',
@@ -304,7 +292,6 @@ class KoperasiAnggota(models.Model):
             x['tanggal'] = fields.Date.to_string(x['tanggal'])
         return {
             'anggota': self._portal_identitas(),
-            'saldo': self._portal_saldo(),
             'tunggakan': self.tunggakan_total,
             'pinjaman': {
                 'id': berjalan.id, 'nomor': berjalan.name, 'pokok': berjalan.pokok, 'sisa': berjalan.sisa_pokok,
@@ -314,35 +301,10 @@ class KoperasiAnggota(models.Model):
             'pengajuan': len(pengajuan),
             'tagihan': {
                 'periode': terakhir.periode_id.name, 'total': terakhir.total,
-                'simpanan': terakhir.simpok + terakhir.simwa + terakhir.simsula,
                 'angsuran': terakhir.angsuran_pokok + terakhir.angsuran_jasa, 'tunggakan': terakhir.tunggakan,
                 'status': terakhir.status, 'status_label': label_baris[terakhir.status],
             } if terakhir else False,
             'aktivitas': aktivitas[:6],
-        }
-
-    def _portal_simpanan(self):
-        self.ensure_one()
-        cfg = self.env['koperasi.pengaturan']._get()
-        lap = self.env['koperasi.laporan'].get_laporan('anggota', anggota_id=self.id)
-        mutasi = [{
-            'periode': r['periode'], 'pokok': r['simpok'] or 0, 'wajib': r['simwa'] or 0,
-            'sukarela': r['simsula'] or 0, 'mutasi': r['diterima'] or 0, 'saldo': r['saldo'], 'status': r['status'],
-        } for r in (lap['bagian'][0]['baris'] if lap.get('bagian') else []) if not r.get('_gaya')]
-        Penarikan = self.env['koperasi.penarikan']
-        label = dict(Penarikan._fields['state'].selection)
-        jenis = dict(Penarikan._fields['jenis'].selection)
-        aktif = self.state == 'aktif'
-        return {
-            'saldo': self._portal_saldo(),
-            'bulanan': {'wajib': cfg.simwa if aktif else 0, 'sukarela': self.simsula if aktif else 0},
-            'mutasi': mutasi[::-1],
-            'penarikan': [{
-                'nomor': t.name, 'jenis': jenis[t.jenis], 'total': t.total, 'status': t.state,
-                'status_label': label[t.state],
-                'tanggal': fields.Date.to_string(
-                    t.tanggal_bayar or (t.tanggal_ajukan and t.tanggal_ajukan.date()) or t.create_date.date()),
-            } for t in self.penarikan_ids.filtered(lambda t: t.state != 'draft').sorted('id', reverse=True)],
         }
 
     def _portal_pinjaman(self):

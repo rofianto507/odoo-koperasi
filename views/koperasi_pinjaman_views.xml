@@ -59,7 +59,7 @@
                                 </group>
                                 <p class="text-muted">
                                     Batas potongan gaji dan pembulatan plafon berlaku untuk semua
-                                    produk dan diatur di Pengaturan Simpanan. Perubahan parameter
+                                    produk dan diatur di Pengaturan. Perubahan parameter
                                     produk hanya berlaku untuk pinjaman yang dibuat sesudahnya.
                                 </p>
                             </div>
@@ -71,7 +71,6 @@
                                         <field name="sim_pokok"/>
                                         <field name="sim_tenor"/>
                                         <field name="sim_gaji"/>
-                                        <field name="sim_simsula"/>
                                     </group>
                                     <field name="sim_hasil" nolabel="1" readonly="1"/>
                                 </div>
@@ -177,7 +176,6 @@
                                            invisible="state in ('berjalan', 'lunas')">
                                         <field name="gaji_bersih"/>
                                         <field name="batas_potongan"/>
-                                        <field name="potongan_simpanan"/>
                                         <field name="angsuran_maks"/>
                                         <field name="plafon" class="fw-bold"/>
                                     </group>

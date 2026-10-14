@@ -2,12 +2,11 @@
 
 Jurnal otomatis dibuat dari kejadian operasional:
 - pencairan pinjaman   : Dr Piutang Pinjaman / Cr Bank, Cr Pendapatan Biaya Administrasi
-- penarikan simpanan   : Dr Simpanan Pokok, Wajib, Sukarela / Cr Bank (koperasi_penarikan.py)
-- penerimaan tagihan   : Dr Bank / Cr Simpanan Pokok, Wajib, Sukarela, Piutang Pinjaman, Pendapatan Jasa
+- penerimaan tagihan   : Dr Bank / Cr Piutang Pinjaman, Pendapatan Jasa
   (satu jurnal per tagihan, berisi semua baris yang DIAKUI pada periode tagihan itu, termasuk
   tunggakan periode lalu yang ikut lunas; lihat `periode_akui_id` di koperasi.tagihan.line)
 
-Basis kas: simpanan, angsuran, dan jasa diakui saat pembayarannya divalidasi. Transaksi lain
+Basis kas: angsuran dan jasa diakui saat pembayarannya divalidasi. Transaksi lain
 (setoran modal, biaya operasional, dst.) dicatat operator lewat Jurnal Umum.
 """
 from odoo import api, fields, models, _
@@ -35,14 +34,13 @@ SUMBER_JURNAL = [
     ('manual', 'Jurnal Umum'),
     ('pencairan', 'Pencairan Pinjaman'),
     ('penerimaan', 'Penerimaan Tagihan'),
-    ('penarikan', 'Penarikan Simpanan'),
     ('penutup', 'Jurnal Penutup'),
     ('shu', 'Pembayaran Pembagian Laba'),
 ]
 STATE_JURNAL = [('draft', 'Draft'), ('posted', 'Terposting')]
 
 # Field jurnal yang hanya boleh diubah oleh alur sistem (posting, jurnal otomatis).
-FIELD_SISTEM = {'name', 'state', 'sumber', 'periode_id', 'pinjaman_id', 'tagihan_id', 'penarikan_id', 'shu_id'}
+FIELD_SISTEM = {'name', 'state', 'sumber', 'periode_id', 'pinjaman_id', 'tagihan_id', 'shu_id'}
 # Isi jurnal: hanya boleh diubah selama jurnal manual masih Draft.
 FIELD_ISI = {'tanggal', 'keterangan', 'mitra_id', 'line_ids'}
 
@@ -111,7 +109,7 @@ class KoperasiAkun(models.Model):
 
     @api.model
     def _sistem(self, kunci):
-        """Akun bawaan untuk jurnal otomatis: bank, piutang, simpok, simwa, simsula, jasa, admin."""
+        """Akun bawaan untuk jurnal otomatis: bank, piutang, jasa, admin."""
         return self.env.ref('koperasi.akun_%s' % kunci).sudo()
 
 
@@ -393,17 +391,13 @@ class KoperasiTagihan(models.Model):
         for t in self.sudo():
             baris = t._baris_diakui()
             jurnal = Jurnal.search([('tagihan_id', '=', t.id), ('sumber', '=', 'penerimaan')], limit=1)
-            jumlah = {k: sum(baris.mapped(k))
-                      for k in ('simpok', 'simwa', 'simsula', 'angsuran_pokok', 'angsuran_jasa')}
+            jumlah = {k: sum(baris.mapped(k)) for k in ('angsuran_pokok', 'angsuran_jasa')}
             total = sum(jumlah.values())
             if not total:
                 jurnal.unlink()
                 continue
             rincian = [
                 (Akun._sistem('bank'), total, 0),
-                (Akun._sistem('simpok'), 0, jumlah['simpok']),
-                (Akun._sistem('simwa'), 0, jumlah['simwa']),
-                (Akun._sistem('simsula'), 0, jumlah['simsula']),
                 (Akun._sistem('piutang'), 0, jumlah['angsuran_pokok']),
                 (Akun._sistem('jasa'), 0, jumlah['angsuran_jasa']),
             ]

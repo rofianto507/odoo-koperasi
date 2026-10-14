@@ -16,14 +16,12 @@ class KoperasiBuatTagihanWizard(models.TransientModel):
 
     def action_buat(self):
         self.ensure_one()
-        if not self.env['koperasi.pengaturan']._get().simwa:
-            raise UserError(_('Atur dulu besaran simpanan wajib di menu Pengaturan.'))
         tagihan = self.env['koperasi.tagihan']._buat_tagihan(
             self.periode_id, self.mitra_ids or None)
         if not tagihan:
             raise UserError(_(
-                'Tidak ada tagihan baru. Tagihan periode ini sudah dibuat, '
-                'atau mitra belum punya anggota aktif.'))
+                'Tidak ada tagihan baru. Tagihan periode ini sudah dibuat, atau tidak ada '
+                'anggota mitra yang punya angsuran jatuh tempo atau tunggakan bulan ini.'))
         return {
             'type': 'ir.actions.act_window',
             'name': _('Tagihan'),

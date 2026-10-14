@@ -55,7 +55,7 @@ class KoperasiLaporan(models.AbstractModel):
 
     def _catatan_buku(self, ctx):
         catatan = [
-            _('Disusun dari jurnal yang sudah diposting. Basis kas: simpanan, angsuran, dan jasa pinjaman '
+            _('Disusun dari jurnal yang sudah diposting. Basis kas: angsuran dan jasa pinjaman '
               'diakui saat pembayarannya divalidasi; pinjaman diakui saat dicairkan.'),
             _('Pencairan pinjaman dan penerimaan tagihan dijurnal otomatis. Modal, biaya operasional, dan '
               'transaksi lain hanya muncul bila dicatat lewat menu Pembukuan > Jurnal.'),
@@ -114,9 +114,7 @@ class KoperasiLaporan(models.AbstractModel):
         catatan = self._catatan_buku(ctx) + [
             _('Laba tahun yang belum tutup buku dihitung dari akun pendapatan dan beban sampai akhir periode '
               'laporan, sebelum pajak dan pembagian. Setelah tutup buku ditetapkan (menu Pembukuan > Tutup '
-              'Buku & Laba), laba dipindahkan ke Laba Ditahan dan pos pembagiannya.'),
-            _('Seluruh simpanan anggota (pokok, wajib, sukarela) dicatat sebagai kewajiban karena merupakan '
-              'titipan yang dikembalikan saat ditarik atau saat anggota keluar.')]
+              'Buku & Laba), laba dipindahkan ke Laba Ditahan dan pos pembagiannya.')]
         if kas < 0:
             catatan.insert(0, _(
                 'Saldo kas dan bank negatif (%s): dana yang disalurkan lebih besar daripada dana yang tercatat '
@@ -132,7 +130,7 @@ class KoperasiLaporan(models.AbstractModel):
                 {'label': _('Total Aset'), 'nilai': t_aset, 'tipe': 'rp', 'sub': _('per akhir %s', p.name)},
                 {'label': _('Kas dan Bank'), 'nilai': kas, 'tipe': 'rp', 'sub': _('saldo akun kas/bank')},
                 {'label': _('Piutang Pinjaman'), 'nilai': piutang, 'tipe': 'rp', 'sub': _('sisa pokok pinjaman')},
-                {'label': _('Total Kewajiban'), 'nilai': t_kewajiban, 'tipe': 'rp', 'sub': _('termasuk simpanan anggota')},
+                {'label': _('Total Kewajiban'), 'nilai': t_kewajiban, 'tipe': 'rp', 'sub': _('utang dan pembagian laba terutang')},
                 {'label': _('Total Ekuitas'), 'nilai': t_ekuitas, 'tipe': 'rp', 'sub': _('termasuk laba %s', self._rp_minus(shu))},
                 {'label': _('Keseimbangan'), 'nilai': None, 'tipe': 'teks',
                  'sub': _('Seimbang') if seimbang else _('Selisih %s', self._rp_minus(selisih))},
@@ -288,7 +286,7 @@ class KoperasiLaporan(models.AbstractModel):
                               kosong=_('Tidak ada kas masuk atau keluar pada periode ini.')), rekon, tabel_periode],
             'catatan': self._catatan_buku(ctx) + [
                 _('Penyaluran dan pengembalian pinjaman digolongkan aktivitas operasi karena merupakan usaha utama '
-                  'koperasi simpan pinjam; simpanan anggota dan modal digolongkan aktivitas pendanaan.'),
+                  'koperasi; modal dan utang pihak ketiga digolongkan aktivitas pendanaan.'),
                 _('Biaya administrasi dipotong dari dana pencairan: pencairan dicatat keluar sebesar pokok dan '
                   'biaya administrasi dicatat masuk.')],
         }
@@ -376,7 +374,7 @@ class KoperasiLaporan(models.AbstractModel):
             [{'pos': label, 'persen': r['persen_' + k], 'nominal': r['nominal_' + k], 'ket': {
                 'pemodal': _('dibayarkan kepada pemodal'),
                 'ditahan': _('tetap di usaha, menambah dana pinjaman'),
-                'anggota': _('%d anggota, sebanding saldo simpanan', r.jumlah_anggota),
+                'anggota': _('%d anggota, sebanding jasa + admin yang dihasilkannya', r.jumlah_anggota),
                 'mitra': _('%d mitra, sebanding pendapatan dari anggotanya', r.jumlah_mitra),
             }[k]} for k, label, _a in POS_LABA],
             catatan=_('Jumlah mengikuti persentase, kecuali: imbalan anggota dan komisi mitra dibulatkan ke bawah '
@@ -391,19 +389,19 @@ class KoperasiLaporan(models.AbstractModel):
             catatan=_('Pendapatan dari mitra = jasa pinjaman dan biaya administrasi dari anggota mitra itu.'))
         per_mitra = {}
         for l in r.line_ids:
-            v = per_mitra.setdefault(l.mitra_id, {'mitra': l.mitra_id.name, 'n': 0, 'simpanan': 0, 'total': 0})
+            v = per_mitra.setdefault(l.mitra_id, {'mitra': l.mitra_id.name, 'n': 0, 'dasar': 0, 'total': 0})
             v['n'] += 1
-            v['simpanan'] += l.dasar_simpanan
+            v['dasar'] += l.dasar_jasa
             v['total'] += l.total
         tabel_imbalan_mitra = bagian(_('Imbalan Anggota per Mitra'), [
             kolom('mitra', 'Mitra'), kolom('n', 'Anggota', 'angka', True),
-            kolom('simpanan', 'Saldo Simpanan', 'rp', True), kolom('total', 'Imbalan', 'rp', True)],
+            kolom('dasar', 'Jasa + Admin Dibayar', 'rp', True), kolom('total', 'Imbalan', 'rp', True)],
             sorted(per_mitra.values(), key=lambda v: -v['total']), kosong=_('Tidak ada imbalan anggota.'))
         tabel_anggota = bagian(_('Imbalan per Anggota'), [
             kolom('nomor', 'No. Anggota', 'kode'), kolom('nama', 'Anggota'), kolom('mitra', 'Mitra'),
-            kolom('simpanan', 'Saldo Simpanan', 'rp', True), kolom('total', 'Imbalan', 'rp', True)],
+            kolom('dasar', 'Jasa + Admin Dibayar', 'rp', True), kolom('total', 'Imbalan', 'rp', True)],
             [{'nomor': l.anggota_id.nomor_anggota or '', 'nama': l.anggota_id.name, 'mitra': l.mitra_id.name,
-              'simpanan': l.dasar_simpanan, 'total': l.total, '_buka': buka(l.anggota_id)}
+              'dasar': l.dasar_jasa, 'total': l.total, '_buka': buka(l.anggota_id)}
              for l in r.line_ids.sorted(lambda l: (l.mitra_id.name or '', l.anggota_id.name or ''))],
             kosong=_('Tidak ada imbalan anggota (laba nol, rugi, atau persentasenya nol).'))
         final = r.state != 'draft'
@@ -430,8 +428,9 @@ class KoperasiLaporan(models.AbstractModel):
             'bagian': [hitung, pos, tabel_mitra, tabel_imbalan_mitra, tabel_anggota],
             'catatan': [
                 _('Laba dihitung dari jurnal yang sudah diposting, sebelum pajak.'),
-                _('Imbalan anggota dibagi sebanding saldo simpanan (pokok, wajib, sukarela) pada akhir tahun buku. '
-                  'Komisi mitra dibagi sebanding pendapatan yang dihasilkan anggotanya selama tahun buku.')] + (
+                _('Imbalan anggota dibagi sebanding jasa pinjaman dan biaya administrasi yang dihasilkannya '
+                  'sendiri selama tahun buku. Komisi mitra dibagi sebanding pendapatan yang dihasilkan '
+                  'anggotanya selama tahun buku.')] + (
                 [] if final else [_('SIMULASI: belum ditetapkan. Untuk tahun yang belum selesai, laba dan rasio terhadap '
                                     'modal adalah angka sampai hari ini, belum disetahunkan.')]),
         }

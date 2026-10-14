@@ -49,7 +49,6 @@ class KoperasiMitra(models.Model):
     # Ringkasan untuk smart button; dihitung dengan hak pengguna yang membuka form,
     # jadi admin mitra hanya melihat data mitranya dan tagihan yang sudah ditagihkan.
     anggota_menunggu_count = fields.Integer('Menunggu Validasi', compute='_compute_ringkasan')
-    saldo_simpanan = fields.Monetary('Total Simpanan', compute='_compute_ringkasan')
     pinjaman_berjalan_count = fields.Integer('Pinjaman Berjalan', compute='_compute_ringkasan')
     pinjaman_sisa = fields.Monetary('Sisa Pinjaman', compute='_compute_ringkasan')
     pinjaman_pengajuan_count = fields.Integer('Pengajuan Pinjaman', compute='_compute_ringkasan')
@@ -81,14 +80,8 @@ class KoperasiMitra(models.Model):
         ids = self.ids
         menunggu = {m.id: n for m, n in Anggota._read_group(
             [('mitra_id', 'in', ids), ('state', '=', 'menunggu')], ['mitra_id'], ['__count'])}
-        agregat = ['simpok:sum', 'simwa:sum', 'simsula:sum']
-        rinci = {m.id: [p or 0, w or 0, s or 0] for m, p, w, s in Line._read_group(
-            [('mitra_id', 'in', ids), ('status', '=', 'dibayar')], ['mitra_id'], agregat)}
-        for m, *tarik in self.env['koperasi.penarikan']._read_group(
-                [('mitra_id', 'in', ids), ('state', '=', 'dibayar')], ['mitra_id'], agregat):
-            masuk = rinci.setdefault(m.id, [0, 0, 0])
-            rinci[m.id] = [a - (b or 0) for a, b in zip(masuk, tarik)]
-        saldo = {m_id: sum(v) for m_id, v in rinci.items()}
+        aktif = {m.id: n for m, n in Anggota._read_group(
+            [('mitra_id', 'in', ids), ('state', '=', 'aktif')], ['mitra_id'], ['__count'])}
         berjalan = {m.id: (n, sisa or 0) for m, n, sisa in Pinjaman._read_group(
             [('mitra_id', 'in', ids), ('state', '=', 'berjalan')], ['mitra_id'],
             ['__count', 'sisa_pokok:sum'])}
@@ -112,10 +105,9 @@ class KoperasiMitra(models.Model):
             [('mitra_id', 'in', ids), ('status', '=', 'belum')], ['mitra_id'], ['anggota_id:count_distinct'])}
         for r in self:
             r.ringkasan_html = r._kartu_ringkasan(
-                rinci.get(r.id, [0, 0, 0]), berjalan.get(r.id, (0, 0)), pengajuan.get(r.id, 0),
+                aktif.get(r.id, 0), berjalan.get(r.id, (0, 0)), pengajuan.get(r.id, 0),
                 tunggakan.get(r.id, 0), menunggak.get(r.id, 0))
             r.anggota_menunggu_count = menunggu.get(r.id, 0)
-            r.saldo_simpanan = saldo.get(r.id, 0)
             r.pinjaman_berjalan_count, r.pinjaman_sisa = berjalan.get(r.id, (0, 0))
             r.pinjaman_pengajuan_count = pengajuan.get(r.id, 0)
             r.tagihan_count = tagihan.get(r.id, 0)
@@ -128,11 +120,11 @@ class KoperasiMitra(models.Model):
         tagihan = self.env['koperasi.tagihan'].search(
             [('mitra_id', '=', self.id), ('state', '!=', 'draft')], order='periode desc', limit=jumlah_periode)
         diterima = belum = 0
-        for t, status, akui, pk, w, s, ap, aj in self.env['koperasi.tagihan.line']._read_group(
+        for t, status, akui, ap, aj in self.env['koperasi.tagihan.line']._read_group(
                 [('tagihan_id', 'in', tagihan.ids), ('status', '!=', 'menunggu')],
                 ['tagihan_id', 'status', 'periode_akui_id'],
-                ['simpok:sum', 'simwa:sum', 'simsula:sum', 'angsuran_pokok:sum', 'angsuran_jasa:sum']):
-            nilai = sum(v or 0 for v in (pk, w, s, ap, aj))
+                ['angsuran_pokok:sum', 'angsuran_jasa:sum']):
+            nilai = sum(v or 0 for v in (ap, aj))
             if status == 'dibayar' and akui == t.periode_id:
                 diterima += nilai
             else:
@@ -142,7 +134,7 @@ class KoperasiMitra(models.Model):
         urut = tagihan.sorted('periode')
         return round(diterima * 100 / (diterima + belum), 1), urut[0].periode_id.name, urut[-1].periode_id.name
 
-    def _kartu_ringkasan(self, simpanan, berjalan, pengajuan, tunggakan, menunggak):
+    def _kartu_ringkasan(self, aktif, berjalan, pengajuan, tunggakan, menunggak):
         self.ensure_one()
         rp = self.currency_id.format
         kolek, awal, akhir = self._kolektibilitas()
@@ -153,8 +145,7 @@ class KoperasiMitra(models.Model):
             sub_kolek = _('dibayar tepat waktu, %s', awal if awal == akhir else '%s – %s' % (awal, akhir))
             warna_kolek = '#16a34a' if kolek >= 95 else '#d97706' if kolek >= 85 else '#dc2626'
         kartu = [
-            (_('Total Simpanan'), rp(sum(simpanan)), '#7c3aed',
-             _('pokok %(a)s · wajib %(b)s · sukarela %(c)s', a=rp(simpanan[0]), b=rp(simpanan[1]), c=rp(simpanan[2]))),
+            (_('Anggota Aktif'), str(aktif), '#7c3aed', _('pekerja mitra ini')),
             (_('Sisa Pinjaman'), rp(berjalan[1]), '#2563eb',
              _('%(n)d pinjaman berjalan', n=berjalan[0]) + (_(' · %d pengajuan diproses', pengajuan) if pengajuan else '')),
             (_('Tunggakan'), rp(tunggakan), '#dc2626' if tunggakan else '#16a34a',
@@ -291,10 +282,9 @@ class KoperasiMitra(models.Model):
             [('mitra_id', '=', self.id), ('state', '=', 'menunggu')],
             context={'default_mitra_id': self.id})
 
-    def action_lihat_simpanan(self):
-        """Anggota aktif mitra ini; daftar anggota menampilkan kolom saldo simpanan."""
+    def action_lihat_anggota_aktif(self):
         return self._aksi_daftar(
-            self.env._('Simpanan Anggota'), 'koperasi.anggota',
+            self.env._('Anggota Aktif'), 'koperasi.anggota',
             [('mitra_id', '=', self.id), ('state', '=', 'aktif')])
 
     def action_lihat_pinjaman(self):

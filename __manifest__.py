@@ -1,9 +1,9 @@
 {
     'name': 'Koperasi',
-    'version': '19.0.5.0.0',
-    'summary': 'Manajemen koperasi simpan pinjam pegawai lintas mitra',
+    'version': '19.0.6.0.0',
+    'summary': 'Manajemen koperasi pinjaman pegawai lintas mitra',
     'description': """
-Platform simpan pinjam koperasi pegawai. Operator pusat mengelola mitra
+Platform pinjaman koperasi pegawai. Operator pusat mengelola mitra
 (perusahaan) dan memvalidasi anggota; admin tiap mitra mendaftarkan pegawainya
 sebagai calon anggota koperasi.
 """,
@@ -16,10 +16,10 @@ sebagai calon anggota koperasi.
         'security/ir.model.access.csv',
         'security/koperasi_rule.xml',
         'data/koperasi_sequence_data.xml',
-        'data/koperasi_simpanan_data.xml',
+        'data/koperasi_data.xml',
         'views/koperasi_mitra_views.xml',
         'views/koperasi_anggota_views.xml',
-        'views/koperasi_simpanan_views.xml',
+        'views/koperasi_pengaturan_views.xml',
         'views/koperasi_pinjaman_views.xml',
         'views/koperasi_dashboard_views.xml',
         'views/koperasi_laporan_views.xml',
@@ -29,7 +29,6 @@ sebagai calon anggota koperasi.
         'report/koperasi_laporan_report.xml',
         'views/menu.xml',
         'views/koperasi_pembukuan_views.xml',
-        'views/koperasi_penarikan_views.xml',
         'views/koperasi_shu_views.xml',
         'views/koperasi_portal_templates.xml',
         'wizard/koperasi_impor_anggota_wizard_views.xml',

@@ -1,12 +1,14 @@
 """Tutup buku tahunan: perhitungan laba bersih dan pembagiannya, serta jurnal penutup.
 
 Model usahanya: pengelola (pemodal sekaligus pemilik platform) menanam modal yang disalurkan
-sebagai pinjaman kepada pekerja perusahaan mitra. Laba setahun = pendapatan − beban dari jurnal
-terposting, dan pada dasarnya milik pemodal. Pembagiannya mengikuti persentase di Pengaturan:
+sebagai pinjaman kepada pekerja perusahaan mitra. Unit usahanya murni pinjaman, tidak ada
+produk simpanan. Laba setahun = pendapatan − beban dari jurnal terposting, dan pada dasarnya
+milik pemodal. Pembagiannya mengikuti persentase di Pengaturan:
 
 - Imbal hasil pemodal : bagian laba yang dibayarkan kepada pemodal.
 - Laba ditahan        : tetap di usaha sebagai ekuitas (juga menampung sisa pembulatan dan rugi).
-- Imbalan anggota     : dibagi ke anggota sebanding saldo simpanannya pada akhir tahun.
+- Imbalan anggota     : dibagi ke anggota sebanding jasa pinjaman + biaya administrasi yang
+                        dihasilkannya sendiri selama tahun itu.
 - Komisi mitra        : dibagi ke mitra sebanding pendapatan (jasa pinjaman + biaya administrasi)
                         yang dihasilkan anggotanya selama tahun itu.
 
@@ -27,7 +29,7 @@ STATE_SHU = [('draft', 'Draft'), ('ditetapkan', 'Ditetapkan'), ('dibayar', 'Diba
 POS_LABA = [
     ('pemodal', 'Imbal Hasil Pemodal', 'utang_pemodal'),
     ('ditahan', 'Laba Ditahan', 'cadangan'),
-    ('anggota', 'Imbalan Simpanan Anggota', 'shu_anggota'),
+    ('anggota', 'Imbalan Anggota', 'shu_anggota'),
     ('mitra', 'Komisi Mitra', 'utang_mitra'),
 ]
 # Pos yang dibayarkan keluar (kewajiban sampai dibayar); Laba Ditahan tetap di ekuitas
@@ -51,8 +53,9 @@ class KoperasiPengaturan(models.Model):
         'Laba Ditahan (%)', digits=(5, 2), default=BAWAAN['ditahan'], tracking=True,
         help='Bagian laba yang tetap di usaha untuk memperbesar dana pinjaman.')
     laba_anggota = fields.Float(
-        'Imbalan Simpanan Anggota (%)', digits=(5, 2), default=BAWAAN['anggota'], tracking=True,
-        help='Dibagi ke anggota sebanding saldo simpanannya pada akhir tahun. Isi 0 bila tidak ada.')
+        'Imbalan Anggota (%)', digits=(5, 2), default=BAWAAN['anggota'], tracking=True,
+        help='Dibagi ke anggota sebanding jasa pinjaman dan biaya administrasi yang '
+             'dihasilkannya sendiri selama tahun itu. Isi 0 bila tidak ada.')
     laba_mitra = fields.Float(
         'Komisi Mitra (%)', digits=(5, 2), default=BAWAAN['mitra'], tracking=True,
         help='Dibagi ke mitra sebanding pendapatan yang dihasilkan anggotanya. Isi 0 bila tidak ada.')
@@ -103,11 +106,11 @@ class KoperasiShu(models.Model):
 
     persen_pemodal = fields.Float('Imbal Hasil Pemodal (%)', digits=(5, 2))
     persen_ditahan = fields.Float('Laba Ditahan (%)', digits=(5, 2))
-    persen_anggota = fields.Float('Imbalan Simpanan Anggota (%)', digits=(5, 2))
+    persen_anggota = fields.Float('Imbalan Anggota (%)', digits=(5, 2))
     persen_mitra = fields.Float('Komisi Mitra (%)', digits=(5, 2))
     nominal_pemodal = fields.Monetary('Imbal Hasil Pemodal', readonly=True, copy=False)
     nominal_ditahan = fields.Monetary('Laba Ditahan', readonly=True, copy=False)
-    nominal_anggota = fields.Monetary('Imbalan Simpanan Anggota', readonly=True, copy=False)
+    nominal_anggota = fields.Monetary('Imbalan Anggota', readonly=True, copy=False)
     nominal_mitra = fields.Monetary('Komisi Mitra', readonly=True, copy=False)
     nominal_dibayar = fields.Monetary(
         'Dibayarkan Keluar', compute='_compute_rasio',
@@ -205,18 +208,20 @@ class KoperasiShu(models.Model):
         return (k or 0) - (d or 0)
 
     def _dasar_anggota(self):
-        """{anggota_id: saldo simpanan (pokok + wajib + sukarela) pada akhir tahun buku}"""
+        """{anggota_id: jasa pinjaman + biaya administrasi yang dihasilkan anggota itu
+        sendiri selama tahun buku}"""
         self.ensure_one()
-        akhir = self._rentang()[1]
-        agregat = ['simpok:sum', 'simwa:sum', 'simsula:sum']
-        simpanan = defaultdict(float)
-        for a, *nilai in self.env['koperasi.tagihan.line'].sudo()._read_group(
-                [('status', '=', 'dibayar'), ('tanggal_akui', '<=', akhir)], ['anggota_id'], agregat):
-            simpanan[a.id] += sum(v or 0 for v in nilai)
-        for a, *nilai in self.env['koperasi.penarikan'].sudo()._read_group(
-                [('state', '=', 'dibayar'), ('tanggal_bayar', '<=', akhir)], ['anggota_id'], agregat):
-            simpanan[a.id] -= sum(v or 0 for v in nilai)
-        return {k: v for k, v in simpanan.items() if v > 0.5}
+        awal, akhir = self._rentang()
+        pendapatan = defaultdict(float)
+        for a, j in self.env['koperasi.pinjaman.angsuran'].sudo()._read_group(
+                [('status', '=', 'dibayar'), ('tanggal_akui', '>=', awal), ('tanggal_akui', '<=', akhir)],
+                ['anggota_id'], ['jasa:sum']):
+            pendapatan[a.id] += j or 0
+        for a, adm in self.env['koperasi.pinjaman'].sudo()._read_group(
+                [('tanggal_cair', '>=', awal), ('tanggal_cair', '<=', akhir)],
+                ['anggota_id'], ['biaya_admin:sum']):
+            pendapatan[a.id] += adm or 0
+        return {k: v for k, v in pendapatan.items() if k and v > 0.5}
 
     def _dasar_mitra(self):
         """{mitra_id: jasa pinjaman + biaya administrasi dari anggota mitra itu selama tahun buku}"""
@@ -252,8 +257,8 @@ class KoperasiShu(models.Model):
             beban = sum(v for a, v in saldo.items() if a.jenis == 'beban')
             laba = pendapatan - beban
             nominal = {k: (round(laba * r['persen_' + k] / 100) if laba > 0 else 0) for k, _l, _a in POS_LABA}
-            simpanan, dari_mitra = r._dasar_anggota(), r._dasar_mitra()
-            imbalan = r._bagi(nominal['anggota'], simpanan)
+            dari_anggota, dari_mitra = r._dasar_anggota(), r._dasar_mitra()
+            imbalan = r._bagi(nominal['anggota'], dari_anggota)
             komisi = r._bagi(nominal['mitra'], dari_mitra)
             # yang benar-benar terbagi; sisa pembulatan, pos tanpa penerima, dan seluruh rugi
             # masuk Laba Ditahan
@@ -265,7 +270,7 @@ class KoperasiShu(models.Model):
                 total_pendapatan=pendapatan, total_beban=beban, shu=laba, modal_penyertaan=r._modal(),
                 tanggal_hitung=fields.Datetime.now(),
                 line_ids=[fields.Command.clear()] + [
-                    fields.Command.create({'anggota_id': a, 'dasar_simpanan': simpanan[a], 'total': v})
+                    fields.Command.create({'anggota_id': a, 'dasar_jasa': dari_anggota[a], 'total': v})
                     for a, v in sorted(imbalan.items()) if v > 0],
                 mitra_ids=[fields.Command.clear()] + [
                     fields.Command.create({'mitra_id': m, 'dasar_pendapatan': dari_mitra[m], 'komisi': v})
@@ -373,7 +378,7 @@ class KoperasiShu(models.Model):
 
 class KoperasiShuLine(models.Model):
     _name = 'koperasi.shu.line'
-    _description = 'Imbalan Simpanan per Anggota'
+    _description = 'Imbalan per Anggota'
     _order = 'total desc, id'
     _rec_name = 'anggota_id'
 
@@ -382,7 +387,8 @@ class KoperasiShuLine(models.Model):
     anggota_id = fields.Many2one(
         'koperasi.anggota', string='Anggota', required=True, index=True, ondelete='restrict')
     mitra_id = fields.Many2one(related='anggota_id.mitra_id', store=True, index=True)
-    dasar_simpanan = fields.Monetary('Saldo Simpanan', help='Pokok + wajib + sukarela pada akhir tahun buku.')
+    dasar_jasa = fields.Monetary(
+        'Jasa + Admin Dibayar', help='Jasa pinjaman + biaya administrasi yang dihasilkan anggota ini sendiri selama tahun buku.')
     total = fields.Monetary('Imbalan')
 
 
@@ -412,10 +418,13 @@ class KoperasiAkun(models.Model):
 
     @api.model
     def _hapus_akun_usang(self):
-        """Dipanggil di awal pemuatan data: buang akun pos pembagian versi koperasi (dana
-        pengurus, pendidikan, sosial) yang tidak dipakai lagi, selama belum pernah dijurnal."""
+        """Dipanggil di awal pemuatan data: buang akun versi lama yang tidak dipakai lagi
+        (dana pengurus/pendidikan/sosial dari versi koperasi; simpanan pokok/wajib/sukarela
+        dari versi sebelum unit usaha dipersempit menjadi murni pinjaman), selama belum
+        pernah dijurnal; bila sudah pernah dijurnal, diarsipkan saja agar riwayat tetap utuh."""
         Line = self.env['koperasi.jurnal.line'].sudo()
-        for xmlid in ('akun_dana_pengurus', 'akun_dana_pendidikan', 'akun_dana_sosial'):
+        for xmlid in ('akun_dana_pengurus', 'akun_dana_pendidikan', 'akun_dana_sosial',
+                      'akun_simpok', 'akun_simwa', 'akun_simsula'):
             akun = self.env.ref('koperasi.' + xmlid, raise_if_not_found=False)
             if not akun:
                 continue
@@ -428,17 +437,12 @@ class KoperasiAkun(models.Model):
 
     @api.model
     def _sesuaikan_bagan_akun(self):
-        """Dipanggil tiap pembaruan: sesuaikan akun bawaan lama dengan model pemodal. Simpanan
-        pokok dan wajib adalah titipan anggota (kewajiban), bukan ekuitas. Hanya mengubah akun
-        yang masih bernilai bawaan lama, jadi perubahan pengguna tidak ditimpa."""
+        """Dipanggil tiap pembaruan: sesuaikan akun bawaan lama dengan model pemodal. Hanya
+        mengubah akun yang masih bernilai bawaan lama, jadi perubahan pengguna tidak ditimpa."""
         lama = {
-            'akun_simpok': ({'kode': '3101', 'jenis': 'ekuitas'},
-                            {'kode': '2102', 'name': 'Simpanan Pokok Anggota', 'jenis': 'kewajiban'}),
-            'akun_simwa': ({'kode': '3102', 'jenis': 'ekuitas'},
-                           {'kode': '2103', 'name': 'Simpanan Wajib Anggota', 'jenis': 'kewajiban'}),
             'akun_shu_anggota': ({'name': 'SHU Bagian Anggota'},
                                  {'name': 'Imbalan Anggota Terutang',
-                                  'keterangan': 'Imbalan simpanan yang sudah ditetapkan tetapi belum dibayarkan.'}),
+                                  'keterangan': 'Imbalan yang sudah ditetapkan tetapi belum dibayarkan.'}),
             'akun_cadangan': ({'name': 'Dana Cadangan'},
                               {'name': 'Laba Ditahan',
                                'keterangan': 'Bagian laba yang tetap di usaha; rugi tahun buku juga dibebankan ke sini.'}),

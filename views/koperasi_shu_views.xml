@@ -116,13 +116,13 @@
                                         <field name="currency_id" column_invisible="1"/>
                                         <field name="anggota_id"/>
                                         <field name="mitra_id"/>
-                                        <field name="dasar_simpanan" sum="Total"/>
+                                        <field name="dasar_jasa" sum="Total"/>
                                         <field name="total" sum="Total"/>
                                     </list>
                                 </field>
                                 <p class="text-muted">
-                                    Imbalan dibagi sebanding saldo simpanan (pokok, wajib, sukarela) tiap anggota
-                                    pada akhir tahun buku. Sisa pembulatan masuk Laba Ditahan.
+                                    Imbalan dibagi sebanding jasa pinjaman dan biaya administrasi yang
+                                    dihasilkan tiap anggota sendiri selama tahun buku. Sisa pembulatan masuk Laba Ditahan.
                                 </p>
                             </page>
                             <page string="Catatan" name="catatan">

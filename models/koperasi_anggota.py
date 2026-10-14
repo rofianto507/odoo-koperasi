@@ -1,5 +1,3 @@
-from dateutil.relativedelta import relativedelta
-
 import re
 
 from markupsafe import Markup
@@ -7,14 +5,15 @@ from markupsafe import Markup
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 
-from .koperasi_pinjaman import hitung_plafon, persen, rp
+from .koperasi_pinjaman import STATE_AKTIF, hitung_plafon, persen, rp
 
 STATE_SELECTION = [
     ('draft', 'Draft'),
     ('menunggu', 'Menunggu Validasi'),
     ('aktif', 'Aktif'),
     ('ditolak', 'Ditolak'),
-    ('keluar', 'Keluar'),  # hanya lewat penarikan simpanan berjenis Keluar
+    ('keluar_diajukan', 'Menunggu Persetujuan Keluar'),
+    ('keluar', 'Keluar'),
 ]
 
 # Bank yang umum di Indonesia untuk rekening pencairan. 'lainnya' membuka isian nama bank.
@@ -35,8 +34,8 @@ BANK_SELECTION = [
 # State di mana admin mitra masih boleh mengubah data anggota.
 STATE_EDITABLE_MITRA = ('draft', 'ditolak')
 
-# Field yang tetap boleh diubah admin mitra setelah anggota diajukan/aktif.
-FIELD_MITRA_SELALU = {'simsula', 'simsula_periode_id'}
+# Field yang tetap boleh diubah admin mitra setelah anggota diajukan/aktif (tidak ada lagi).
+FIELD_MITRA_SELALU = frozenset()
 
 
 class KoperasiAnggota(models.Model):
@@ -77,7 +76,7 @@ class KoperasiAnggota(models.Model):
         help='Terisi otomatis saat anggota divalidasi operator.')
     tanggal_keluar = fields.Date(
         'Tanggal Keluar', readonly=True, copy=False,
-        help='Terisi saat pengembalian seluruh simpanan dibayar.')
+        help='Terisi saat pengajuan keluar disetujui operator.')
 
     # Data gaji: nilai yang berlaku sekarang; tiap perubahan dicatat ke gaji_ids.
     gaji_bersih = fields.Monetary('Gaji Bersih', tracking=True)
@@ -91,40 +90,17 @@ class KoperasiAnggota(models.Model):
     nomor_rekening = fields.Char('Nomor Rekening', tracking=True)
     atas_nama = fields.Char('Atas Nama', tracking=True)
 
-    # Simpanan. simsula + simsula_periode_id = besaran terbaru yang diisi
-    # admin mitra; tiap perubahan dicatat di simsula_ids dan itulah yang
-    # dipakai tagihan.
-    simsula = fields.Monetary('Simpanan Sukarela / Bulan', tracking=True)
-    simsula_periode_id = fields.Many2one(
-        'koperasi.periode', string='Berlaku Mulai Periode', tracking=True,
-        ondelete='restrict',
-        help='Periode pertama besaran ini ditagihkan. Harus setelah periode '
-             'terakhir yang sudah ditagihkan. Bila kosong, dipakai periode '
-             'pertama yang belum ditagihkan.')
-    simsula_ids = fields.One2many(
-        'koperasi.simsula', 'anggota_id', string='Riwayat Simpanan Sukarela', readonly=True)
     tagihan_line_ids = fields.One2many(
         'koperasi.tagihan.line', 'anggota_id', string='Riwayat Tagihan', readonly=True)
-    saldo_simpok = fields.Monetary('Saldo Simpanan Pokok', compute='_compute_saldo')
-    saldo_simwa = fields.Monetary('Saldo Simpanan Wajib', compute='_compute_saldo')
-    saldo_simsula = fields.Monetary('Saldo Simpanan Sukarela', compute='_compute_saldo')
-    saldo_total = fields.Monetary('Total Saldo Simpanan', compute='_compute_saldo')
     tunggakan_total = fields.Monetary(
-        'Tunggakan', compute='_compute_saldo',
-        help='Tagihan simpanan yang belum dibayar dan akan ditagihkan kembali.')
-
-    # Besaran dari Pengaturan Simpanan, ditampilkan saja di form anggota.
-    simpok_berlaku = fields.Monetary('Simpanan Pokok', compute='_compute_simpanan_berlaku')
-    simwa_berlaku = fields.Monetary('Simpanan Wajib / Bulan', compute='_compute_simpanan_berlaku')
+        'Tunggakan', compute='_compute_tunggakan',
+        help='Angsuran yang belum dibayar dan akan ditagihkan kembali.')
 
     pinjaman_ids = fields.One2many(
         'koperasi.pinjaman', 'anggota_id', string='Pinjaman', readonly=True)
     pinjaman_sisa = fields.Monetary('Sisa Pinjaman', compute='_compute_pinjaman')
     angsuran_sisa = fields.Integer('Sisa Angsuran', compute='_compute_pinjaman')
     plafon_info = fields.Html('Simulasi Plafon', compute='_compute_plafon_info', sanitize=False)
-
-    _simsula_positif = models.Constraint(
-        'CHECK(simsula >= 0)', 'Simpanan sukarela tidak boleh negatif.')
 
     # Validasi
     state = fields.Selection(
@@ -189,28 +165,14 @@ class KoperasiAnggota(models.Model):
                 terakhir.tanggal_berlaku = tanggal
 
     # ------------------------------------------------------------------
-    # Simpanan
+    # Tunggakan
     # ------------------------------------------------------------------
-    @api.depends('tagihan_line_ids.status', 'tagihan_line_ids.simpok',
-                 'tagihan_line_ids.simwa', 'tagihan_line_ids.simsula',
-                 'tagihan_line_ids.dibawa_ke_id', 'tagihan_line_ids.total',
-                 'tagihan_line_ids.tunggakan', 'penarikan_ids.state')
-    def _compute_saldo(self):
-        """Saldo = simpanan pada baris tagihan yang sudah Dibayar (komponen
-        asli baris, tanpa tunggakan; tunggakan dihitung di baris asalnya)
-        dikurangi penarikan simpanan yang sudah dibayar.
-        Tunggakan = baris Belum Dibayar yang belum ditagih ulang."""
+    @api.depends('tagihan_line_ids.status', 'tagihan_line_ids.dibawa_ke_id',
+                 'tagihan_line_ids.total', 'tagihan_line_ids.tunggakan')
+    def _compute_tunggakan(self):
+        """Tunggakan = baris Belum Dibayar yang belum ditagih ulang (nilai utuh)
+        + bagian tunggakan pada baris yang sudah memuatnya tetapi belum divalidasi."""
         Line = self.env['koperasi.tagihan.line']
-        agregat = ['simpok:sum', 'simwa:sum', 'simsula:sum']
-        data = Line._read_group(
-            [('anggota_id', 'in', self.ids), ('status', '=', 'dibayar')], ['anggota_id'], agregat)
-        saldo = {anggota.id: [j or 0 for j in jumlah] for anggota, *jumlah in data}
-        for anggota, *jumlah in self.env['koperasi.penarikan']._read_group(
-                [('anggota_id', 'in', self.ids), ('state', '=', 'dibayar')], ['anggota_id'], agregat):
-            masuk = saldo.setdefault(anggota.id, [0, 0, 0])
-            saldo[anggota.id] = [m - (j or 0) for m, j in zip(masuk, jumlah)]
-        # Baris Belum Dibayar yang belum ditagih ulang (nilai utuh) + bagian
-        # tunggakan pada baris yang sudah memuatnya tetapi belum divalidasi.
         tunggakan = {}
         for anggota, jumlah in Line._read_group(
                 [('anggota_id', 'in', self.ids), ('status', '=', 'belum'),
@@ -221,28 +183,7 @@ class KoperasiAnggota(models.Model):
                 ['anggota_id'], ['tunggakan:sum']):
             tunggakan[anggota.id] = tunggakan.get(anggota.id, 0) + (jumlah or 0)
         for r in self:
-            r.saldo_simpok, r.saldo_simwa, r.saldo_simsula = saldo.get(r.id, (0, 0, 0))
-            r.saldo_total = r.saldo_simpok + r.saldo_simwa + r.saldo_simsula
             r.tunggakan_total = tunggakan.get(r.id, 0)
-
-    def _potongan_simpanan(self):
-        """Potongan simpanan bulanan yang mengurangi batas potongan gaji:
-        simpanan wajib + sukarela, ditambah simpanan pokok bila belum pernah
-        ditagihkan (masih akan memotong gaji sekali).
-
-        sudo: pengecekan simpok harus melihat semua tagihan anggota, termasuk
-        tagihan Draft yang tidak terlihat admin mitra.
-        """
-        self.ensure_one()
-        cfg = self.env['koperasi.pengaturan']._get()
-        sudah_simpok = self.env['koperasi.tagihan.line'].sudo().search_count(
-            [('anggota_id', '=', self._origin.id), ('simpok', '>', 0)], limit=1)
-        return cfg.simwa + (self.simsula or 0) + (0 if sudah_simpok else cfg.simpok)
-
-    def _compute_simpanan_berlaku(self):
-        cfg = self.env['koperasi.pengaturan']._get()
-        self.simpok_berlaku = cfg.simpok
-        self.simwa_berlaku = cfg.simwa
 
     @api.depends('pinjaman_ids.state', 'pinjaman_ids.sisa_pokok', 'pinjaman_ids.angsuran_dibayar')
     def _compute_pinjaman(self):
@@ -251,7 +192,7 @@ class KoperasiAnggota(models.Model):
             r.pinjaman_sisa = sum(berjalan.mapped('sisa_pokok'))
             r.angsuran_sisa = sum(p.tenor - p.angsuran_dibayar for p in berjalan)
 
-    @api.depends('gaji_bersih', 'simsula', 'pinjaman_ids.state')
+    @api.depends('gaji_bersih', 'pinjaman_ids.state')
     def _compute_plafon_info(self):
         """Ringkasan batas potongan gaji anggota: angsuran maksimum dan plafon
         pinjaman tiap produk pada tenor terpanjangnya."""
@@ -265,14 +206,10 @@ class KoperasiAnggota(models.Model):
                 r.plafon_info = Markup('<div class="text-muted small">%s</div>') % _(
                     'Isi gaji bersih untuk melihat simulasi plafon angsuran.')
                 continue
-            batas = round(r.gaji_bersih * cfg.batas_potongan / 100)
-            potongan = r._potongan_simpanan()
-            maks = max(batas - potongan, 0)
+            maks = round(r.gaji_bersih * cfg.batas_potongan / 100)
             berjalan = r.pinjaman_ids.filtered(lambda p: p.state == 'berjalan')
             baris = [
-                baris_html % ('', _('Batas potongan %s dari gaji', persen(cfg.batas_potongan)), rp(batas)),
-                baris_html % (' border-bottom pb-1', _('Dikurangi simpanan'), '- ' + rp(potongan)),
-                baris_html % (' fw-bold pt-1', _('Angsuran maksimum per bulan'), rp(maks)),
+                baris_html % (' fw-bold', _('Angsuran maksimum (%s dari gaji)', persen(cfg.batas_potongan)), rp(maks)),
             ]
             if berjalan:
                 angsuran = sum(berjalan.mapped('angsuran_bulan'))
@@ -291,8 +228,8 @@ class KoperasiAnggota(models.Model):
                 '<div class="fw-bold mb-1">%s</div>%s</div>'
             ) % (_('Simulasi Plafon Angsuran'), Markup().join(baris))
 
-    def action_buku_simpanan(self):
-        """Buku simpanan anggota (PDF) sejak tagihan pertamanya sampai bulan ini."""
+    def action_riwayat_anggota(self):
+        """Riwayat tagihan dan pinjaman anggota (PDF) sejak tagihan pertamanya sampai bulan ini."""
         self.ensure_one()
         return {
             'type': 'ir.actions.act_url',
@@ -320,49 +257,6 @@ class KoperasiAnggota(models.Model):
             'domain': [('anggota_id', '=', self.id)],
             'context': {'default_anggota_id': self.id},
         }
-
-    def _simsula_pada(self, periode):
-        """Besaran simsula yang berlaku pada periode (tanggal 1) tertentu."""
-        self.ensure_one()
-        return self.env['koperasi.simsula'].sudo().search([
-            ('anggota_id', '=', self.id), ('berlaku_mulai', '<=', periode),
-        ], order='berlaku_mulai desc, id desc', limit=1).nominal
-
-    def _catat_simsula(self):
-        """Catat besaran simsula beserta periode mulai berlakunya.
-
-        Periode yang sudah ditagihkan tidak boleh diubah, jadi berlaku mulai
-        harus setelah periode tagihan terakhir anggota. Hanya ada satu
-        perubahan yang menunggu: catatan lama yang belum pernah ditagihkan
-        diganti oleh isian terbaru.
-        sudo: riwayat hanya ditulis lewat perubahan simsula di anggota.
-        """
-        Riwayat = self.env['koperasi.simsula'].sudo()
-        Line = self.env['koperasi.tagihan.line'].sudo()
-        Periode = self.env['koperasi.periode']
-        for r in self.sudo():
-            # tanggal mulai periode terakhir yang sudah ditagihkan ke anggota ini
-            terakhir = max(Line.search([('anggota_id', '=', r.id)]).mapped('periode'), default=None)
-            berikut = terakhir and Periode._untuk_tanggal(terakhir + relativedelta(months=1))
-            mulai = r.simsula_periode_id
-            if mulai and terakhir and mulai.tanggal_mulai <= terakhir:
-                raise UserError(_(
-                    'Simpanan periode %(periode)s sudah ditagihkan. Pilih berlaku '
-                    'mulai %(berikut)s atau sesudahnya.',
-                    periode=Periode._untuk_tanggal(terakhir).name, berikut=berikut.name))
-            if not mulai:
-                mulai = Periode._untuk_tanggal(fields.Date.context_today(r))
-                if terakhir and mulai.tanggal_mulai <= terakhir:
-                    mulai = berikut
-                # simpan periode bawaan tanpa memicu pencatatan ulang
-                r.with_context(koperasi_simsula_dicatat=True).simsula_periode_id = mulai
-            domain = [('anggota_id', '=', r.id)]
-            sudah_ada = Riwayat.search_count(domain, limit=1)
-            if terakhir:
-                domain.append(('berlaku_mulai', '>', terakhir))
-            Riwayat.search(domain).unlink()
-            if r.simsula or sudah_ada:
-                Riwayat.create({'anggota_id': r.id, 'periode_id': mulai.id, 'nominal': r.simsula})
 
     @api.constrains('nomor_rekening')
     def _cek_nomor_rekening(self):
@@ -409,14 +303,9 @@ class KoperasiAnggota(models.Model):
                     vals.pop(f, None)
         anggota = super().create(vals_list)
         anggota._catat_riwayat_gaji()
-        anggota._catat_simsula()
         return anggota
 
     def write(self, vals):
-        if 'simsula' in vals and 'simsula_periode_id' not in vals:
-            # Form tidak menanyakan periode: besaran baru selalu berlaku mulai
-            # periode pertama yang belum ditagihkan (ditentukan _catat_simsula).
-            vals = dict(vals, simsula_periode_id=False)
         if not self._is_operator() and not self.env.su:
             if not set(vals) <= FIELD_MITRA_SELALU \
                     and any(r.state not in STATE_EDITABLE_MITRA for r in self):
@@ -431,9 +320,6 @@ class KoperasiAnggota(models.Model):
         res = super().write(vals)
         if {'gaji_bersih', 'gaji_berlaku_mulai'} & vals.keys():
             self._catat_riwayat_gaji()
-        if {'simsula', 'simsula_periode_id'} & vals.keys() \
-                and not self.env.context.get('koperasi_simsula_dicatat'):
-            self._catat_simsula()
         return res
 
     def unlink(self):
@@ -477,15 +363,71 @@ class KoperasiAnggota(models.Model):
     def action_tolak(self):
         self._cek_operator()
         for r in self:
-            if r.state != 'menunggu':
-                raise UserError(_('Hanya anggota berstatus Menunggu Validasi yang dapat ditolak.'))
+            if r.state not in ('menunggu', 'keluar_diajukan'):
+                raise UserError(_(
+                    'Hanya anggota berstatus Menunggu Validasi atau Menunggu Persetujuan Keluar '
+                    'yang dapat ditolak.'))
             if not r.alasan_tolak:
                 raise UserError(_('Alasan penolakan wajib diisi.'))
             r.write({
-                'state': 'ditolak',
+                # pengajuan keluar yang ditolak kembali Aktif, bukan Ditolak
+                'state': 'ditolak' if r.state == 'menunggu' else 'aktif',
                 'validator_id': self.env.user.id,
                 'tanggal_validasi': fields.Datetime.now(),
             })
+
+    # ------------------------------------------------------------------
+    # Keluar dari keanggotaan: tanpa simpanan, hanya alur persetujuan status
+    # ------------------------------------------------------------------
+    def _cek_boleh_keluar(self):
+        self.ensure_one()
+        pinjaman = self.pinjaman_ids.filtered(lambda p: p.state in STATE_AKTIF)
+        if pinjaman:
+            raise UserError(_(
+                '%(anggota)s masih punya pinjaman %(nomor)s yang belum lunas atau masih diproses. '
+                'Selesaikan dulu sebelum anggota keluar.', anggota=self.name, nomor=pinjaman[0].name))
+        if self.tunggakan_total:
+            raise UserError(_(
+                '%(anggota)s masih punya tunggakan %(jumlah)s. Lunasi dulu sebelum anggota keluar.',
+                anggota=self.name, jumlah=rp(self.tunggakan_total)))
+        menggantung = self.env['koperasi.tagihan.line'].sudo().search([
+            ('anggota_id', '=', self.id), ('status', '=', 'menunggu'),
+            ('tagihan_id.state', '!=', 'draft')], limit=1)
+        if menggantung:
+            raise UserError(_(
+                'Tagihan %(tagihan)s untuk %(anggota)s belum divalidasi. Validasi dulu pembayarannya '
+                'sebelum anggota keluar.', tagihan=menggantung.tagihan_id.name, anggota=self.name))
+
+    def action_ajukan_keluar(self):
+        for r in self:
+            if r.state != 'aktif':
+                raise UserError(_('Hanya anggota Aktif yang dapat diajukan keluar.'))
+            r._cek_boleh_keluar()
+            # sudo: admin mitra tidak boleh menulis state langsung (lihat write()),
+            # tapi pengajuan ini sendiri sah dilakukan olehnya untuk anggota mitranya.
+            r.sudo().write({
+                'state': 'keluar_diajukan',
+                'tanggal_ajukan': fields.Datetime.now(),
+                'alasan_tolak': False,
+            })
+
+    def action_setujui_keluar(self):
+        self._cek_operator()
+        for r in self:
+            if r.state != 'keluar_diajukan':
+                raise UserError(_(
+                    'Hanya pengajuan keluar yang Menunggu Persetujuan yang dapat disetujui.'))
+            r._cek_boleh_keluar()
+            # baris anggota di tagihan yang masih Draft tidak lagi ditagihkan
+            self.env['koperasi.tagihan.line'].sudo().search([
+                ('anggota_id', '=', r.id), ('tagihan_id.state', '=', 'draft')]).unlink()
+            r.write({
+                'state': 'keluar',
+                'tanggal_keluar': fields.Date.context_today(r),
+                'validator_id': self.env.user.id,
+                'tanggal_validasi': fields.Datetime.now(),
+            })
+            r.message_post(body=_('Keluar dari keanggotaan, disetujui oleh %s.', self.env.user.name))
 
     # ------------------------------------------------------------------
     # Aksi massal dari daftar (menu Tindakan): yang tidak memenuhi syarat dilewati, bukan digagalkan

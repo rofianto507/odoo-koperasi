@@ -98,9 +98,6 @@ class KoperasiPinjamanProduk(models.Model):
     sim_pokok = fields.Monetary('Pokok', compute='_compute_sim_masukan', readonly=False)
     sim_tenor = fields.Integer('Tenor (bulan)', compute='_compute_sim_masukan', readonly=False)
     sim_gaji = fields.Monetary('Gaji Bersih', compute='_compute_sim_masukan', readonly=False)
-    sim_simsula = fields.Monetary(
-        'Simpanan Sukarela', compute='_compute_sim_masukan', readonly=False,
-        help='Simpanan sukarela anggota per bulan, ikut mengurangi batas potongan.')
     sim_hasil = fields.Html('Hasil Simulasi', compute='_compute_sim_hasil', sanitize=False)
 
     @api.constrains('jasa_persen', 'admin_persen', 'admin_nominal', 'tenor_min', 'tenor_max')
@@ -124,18 +121,15 @@ class KoperasiPinjamanProduk(models.Model):
             r.sim_pokok = 12000000
             r.sim_tenor = min(max(12, r.tenor_min or 1), r.tenor_max or 12)
             r.sim_gaji = 8000000
-            r.sim_simsula = 0
 
-    @api.depends('sim_pokok', 'sim_tenor', 'sim_gaji', 'sim_simsula', 'jasa_persen',
+    @api.depends('sim_pokok', 'sim_tenor', 'sim_gaji', 'jasa_persen',
                  'admin_mode', 'admin_persen', 'admin_nominal', 'tenor_min', 'tenor_max')
     def _compute_sim_hasil(self):
         cfg = self.env['koperasi.pengaturan']._get()
         for r in self:
             h = hitung_pinjaman(r.sim_pokok, r.sim_tenor, r.jasa_persen,
                                 r.admin_mode, r.admin_persen, r.admin_nominal)
-            batas = round((r.sim_gaji or 0) * cfg.batas_potongan / 100)
-            potongan = cfg.simwa + (r.sim_simsula or 0)
-            maks = max(batas - potongan, 0)
+            maks = round((r.sim_gaji or 0) * cfg.batas_potongan / 100)
             plafon = hitung_plafon(maks, r.sim_tenor, r.jasa_persen, cfg.plafon_kelipatan)
 
             masalah = []
@@ -188,9 +182,7 @@ class KoperasiPinjamanProduk(models.Model):
                 '<div class="rounded-3 p-3 mt-3" style="background:rgba(124,58,237,.08)">'
                 '<div class="fw-bold">%(l_plafon)s</div>'
                 '<div class="small text-muted mb-2">%(l_plafon_ket)s</div>'
-                '<div class="d-flex justify-content-between"><span>%(l_batas)s</span><span>%(batas)s</span></div>'
-                '<div class="d-flex justify-content-between border-bottom pb-1"><span>%(l_potongan)s</span><span>- %(potongan)s</span></div>'
-                '<div class="d-flex justify-content-between fw-bold pt-1"><span>%(l_maks)s</span><span>%(maks)s</span></div>'
+                '<div class="d-flex justify-content-between"><span>%(l_maks)s</span><span>%(maks)s</span></div>'
                 '<div class="d-flex justify-content-between fw-bold"><span>%(l_nilai_plafon)s</span><span>%(plafon)s</span></div>'
                 '<div class="small text-muted mt-1">%(rumus)s</div>'
                 '<div class="border-top mt-2 pt-2 %(kelas)s"><i class="fa %(ikon)s me-1"></i>%(putusan)s</div>'
@@ -202,11 +194,7 @@ class KoperasiPinjamanProduk(models.Model):
                 'l_plafon': _('Cek Plafon Anggota (gaji bersih %s)', rp(r.sim_gaji)),
                 'l_plafon_ket': _('Batas pinjaman maksimum untuk anggota dengan gaji ini, '
                                   'terpisah dari pokok yang disimulasikan di atas.'),
-                'l_batas': _('Batas potongan %s', persen(cfg.batas_potongan)),
-                'batas': rp(batas),
-                'l_potongan': _('Dikurangi wajib dan sukarela'),
-                'potongan': rp(potongan),
-                'l_maks': _('Angsuran maksimum'),
+                'l_maks': _('Angsuran maksimum (%s dari gaji)', persen(cfg.batas_potongan)),
                 'maks': rp(maks),
                 'l_nilai_plafon': _('Plafon pinjaman'),
                 'plafon': rp(plafon),
@@ -261,7 +249,6 @@ class KoperasiPinjaman(models.Model):
     # Kelayakan: dihitung dari data anggota saat ini.
     gaji_bersih = fields.Monetary('Gaji Bersih', compute='_compute_kelayakan')
     batas_potongan = fields.Monetary('Batas Potongan Gaji', compute='_compute_kelayakan')
-    potongan_simpanan = fields.Monetary('Potongan Simpanan', compute='_compute_kelayakan')
     angsuran_maks = fields.Monetary('Angsuran Maksimum', compute='_compute_kelayakan')
     plafon = fields.Monetary('Plafon Pinjaman', compute='_compute_kelayakan')
     layak = fields.Boolean('Layak', compute='_compute_kelayakan')
@@ -330,8 +317,7 @@ class KoperasiPinjaman(models.Model):
             a = r.anggota_id
             r.gaji_bersih = a.gaji_bersih
             r.batas_potongan = round((a.gaji_bersih or 0) * cfg.batas_potongan / 100)
-            r.potongan_simpanan = a._potongan_simpanan() if a else 0
-            r.angsuran_maks = max(r.batas_potongan - r.potongan_simpanan, 0)
+            r.angsuran_maks = r.batas_potongan
             r.plafon = hitung_plafon(r.angsuran_maks, r.tenor, r.jasa_persen, cfg.plafon_kelipatan)
             masalah = r._masalah_kelayakan()
             r.layak = not masalah

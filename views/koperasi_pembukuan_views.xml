@@ -59,7 +59,6 @@
                                 <field name="periode_id" options="{'no_open': True}"/>
                                 <field name="pinjaman_id" invisible="not pinjaman_id"/>
                                 <field name="tagihan_id" invisible="not tagihan_id"/>
-                                <field name="penarikan_id" invisible="not penarikan_id"/>
                                 <field name="shu_id" invisible="not shu_id"/>
                             </group>
                         </group>

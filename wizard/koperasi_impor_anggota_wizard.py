@@ -34,7 +34,6 @@ KOLOM = [
     ('bank_tujuan', 'Bank', False, 'pilihan', 'Pilih dari daftar. Bank di luar daftar boleh diketik; akan disimpan sebagai Bank Lainnya.'),
     ('nomor_rekening', 'Nomor Rekening', False, 'kode', 'Angka saja (spasi dan tanda hubung diperbolehkan).'),
     ('atas_nama', 'Atas Nama Rekening', False, 'teks', 'Bila kosong, diisi nama anggota.'),
-    ('simsula', 'Simpanan Sukarela / Bulan', False, 'uang', 'Rupiah per bulan, boleh kosong.'),
     ('street', 'Alamat', False, 'teks', ''),
     ('city', 'Kota', False, 'teks', ''),
 ]
@@ -277,8 +276,6 @@ class KoperasiImporAnggotaWizard(models.TransientModel):
 
         if vals.get('gaji_bersih') and vals['gaji_bersih'] < 0:
             masalah.append(_('Gaji Bersih tidak boleh negatif'))
-        if vals.get('simsula') and vals['simsula'] < 0:
-            masalah.append(_('Simpanan Sukarela tidak boleh negatif'))
         nip = vals.get('nip')
         if nip:
             if nip_berkas.get(nip.lower(), 0) > 1:

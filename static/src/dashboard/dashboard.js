@@ -14,7 +14,6 @@ const PALET = [WARNA.ungu, WARNA.biru, WARNA.hijau, WARNA.jingga, WARNA.merah, W
 
 const BAGIAN = [
     { id: "ringkasan", label: "Ringkasan", ikon: "fa-tachometer" },
-    { id: "simpanan", label: "Simpanan", ikon: "fa-bank" },
     { id: "pinjaman", label: "Pinjaman", ikon: "fa-credit-card" },
     { id: "tagihan", label: "Tagihan", ikon: "fa-file-text-o" },
 ];
@@ -224,7 +223,7 @@ export class KoperasiDashboard extends Component {
     get kartu() {
         const d = this.state.data;
         if (!d) return [];
-        const r = d.ringkasan, p = d.pinjaman, t = d.tagihan, s = d.simpanan;
+        const r = d.ringkasan, p = d.pinjaman, t = d.tagihan;
         // lp = label periode terpilih; kartu "posisi" memakai chip "Saat ini"
         const lp = this.labelPeriode;
         const adaP = !!d.periode.id;
@@ -242,27 +241,12 @@ export class KoperasiDashboard extends Component {
                 { warna: "ungu", ikon: "fa-users", chip: `${r.mitra} mitra`, nilai: this.angka(r.anggota_aktif),
                   label: "Anggota Aktif", sub: `dari ${this.angka(r.anggota_total)} terdaftar`,
                   bar: this.persen(r.anggota_aktif, r.anggota_total), aksi: bukaAnggota },
-                { warna: "hijau", ikon: "fa-bank", chip: "Saldo saat ini", nilai: rpRingkas(r.saldo_total),
-                  label: "Total Simpanan", sub: `${rp(r.simpanan_diterima)} diterima ${lp}`, aksi: bukaAnggota },
+                { warna: "hijau", ikon: "fa-line-chart", chip: lp, nilai: rpRingkas(r.angsuran_diterima),
+                  label: "Angsuran Diterima", sub: `${lp}`, aksi: () => bukaTagihan() },
                 { warna: "biru", ikon: "fa-credit-card", chip: `${r.pinjaman_berjalan} pinjaman berjalan`,
                   nilai: rpRingkas(r.pinjaman_sisa), label: "Sisa Pinjaman",
                   sub: `${rp(r.pinjaman_cair)} dicairkan ${lp}`, aksi: bukaBerjalan },
                 tunggakan(r.tunggakan),
-            ],
-            simpanan: [
-                { warna: "hijau", ikon: "fa-bank", chip: lp, nilai: rpRingkas(s.total),
-                  label: adaP ? "Simpanan Diterima" : "Total Simpanan",
-                  sub: adaP ? `Saldo saat ini ${rp(r.saldo_total)}` : rp(s.total), aksi: bukaAnggota },
-                { warna: "ungu", ikon: "fa-flag", chip: "Sekali di awal", nilai: rpRingkas(s.simpok),
-                  label: "Simpanan Pokok", sub: rp(s.simpok),
-                  bar: this.persen(s.simpok, s.total), aksi: bukaAnggota },
-                { warna: "biru", ikon: "fa-calendar-check-o", chip: "Tiap bulan", nilai: rpRingkas(s.simwa),
-                  label: "Simpanan Wajib", sub: rp(s.simwa),
-                  bar: this.persen(s.simwa, s.total), aksi: bukaAnggota },
-                { warna: "jingga", ikon: "fa-plus-circle", chip: `${s.peserta_simsula} anggota ikut`,
-                  nilai: rpRingkas(s.simsula), label: "Simpanan Sukarela",
-                  sub: `${rp(s.simsula_bulanan)} / bulan saat ini`,
-                  bar: this.persen(s.simsula, s.total), aksi: bukaAnggota },
             ],
             pinjaman: [
                 { warna: "ungu", ikon: "fa-paper-plane", chip: lp, nilai: rpRingkas(p.tersalurkan),
@@ -282,7 +266,7 @@ export class KoperasiDashboard extends Component {
             ],
             tagihan: [
                 { warna: "ungu", ikon: "fa-file-text-o", chip: lp, nilai: rpRingkas(t.ditagihkan),
-                  label: "Total Ditagihkan", sub: "Simpanan + angsuran", aksi: () => bukaTagihan() },
+                  label: "Total Ditagihkan", sub: "Angsuran pokok + jasa", aksi: () => bukaTagihan() },
                 { warna: "hijau", ikon: "fa-check", chip: lp, nilai: rpRingkas(t.diterima),
                   label: "Diterima", sub: rp(t.diterima), bar: this.persen(t.diterima, t.ditagihkan),
                   aksi: () => bukaTagihan() },
@@ -320,8 +304,7 @@ export class KoperasiDashboard extends Component {
     get judulGrafik() {
         const lp = this.labelPeriode;
         return {
-            ringkasan: [["Tagihan per Periode", "ditagihkan vs diterima"], ["Komposisi Simpanan", "saldo saat ini"]],
-            simpanan: [["Simpanan Terkumpul per Periode", "per jenis simpanan"], ["Simpanan per Mitra", `diterima ${lp}`]],
+            ringkasan: [["Tagihan per Periode", "ditagihkan vs diterima"], ["Status Pinjaman", "jumlah pinjaman saat ini"]],
             pinjaman: [["Penyaluran Pinjaman per Bulan", "pokok yang dicairkan"], ["Status Pinjaman", "jumlah pinjaman saat ini"]],
             tagihan: [["Penerimaan per Periode", "diterima, belum dibayar, belum divalidasi"], ["Kolektibilitas", `tagihan ${lp} yang sudah divalidasi`]],
         }[this.state.section];
@@ -343,7 +326,6 @@ export class KoperasiDashboard extends Component {
                   kolom: [
                       { label: "Mitra", key: "name" },
                       { label: "Anggota", key: "anggota", tipe: "angka" },
-                      { label: "Simpanan", key: "simpanan", tipe: "rp" },
                       { label: "Sisa Pinjaman", key: "pinjaman_sisa", tipe: "rp" },
                       { label: "Tunggakan", key: "tunggakan", tipe: "rp", merah: true },
                   ] },
@@ -353,26 +335,6 @@ export class KoperasiDashboard extends Component {
                   kolom: [...kolomPinjaman,
                       { label: "Pokok", key: "pokok", tipe: "rp" },
                       { label: "Status", key: "state", tipe: "status" }] },
-            ],
-            simpanan: [
-                { judul: "Simpanan per Mitra", ikon: "fa-building-o", lencana: this.labelPeriode,
-                  kosong: "Belum ada simpanan yang diterima pada periode ini", baris: d.simpanan.per_mitra, model: "koperasi.mitra",
-                  kolom: [
-                      { label: "Mitra", key: "name" },
-                      { label: "Pokok", key: "simpok", tipe: "rp" },
-                      { label: "Wajib", key: "simwa", tipe: "rp" },
-                      { label: "Sukarela", key: "simsula", tipe: "rp" },
-                      { label: "Total", key: "total", tipe: "rp", tebal: true },
-                  ] },
-                { judul: "Simpanan Terbesar", ikon: "fa-trophy", lencana: this.labelPeriode,
-                  kosong: "Belum ada simpanan yang diterima pada periode ini", baris: d.simpanan.penabung, model: "koperasi.anggota",
-                  kolom: [
-                      { label: "No. Anggota", key: "nomor", tipe: "kode" },
-                      { label: "Anggota", key: "name" },
-                      { label: "Mitra", key: "mitra" },
-                      { label: "Sukarela", key: "simsula", tipe: "rp" },
-                      { label: "Total", key: "total", tipe: "rp", tebal: true },
-                  ] },
             ],
             pinjaman: [
                 { judul: "Pengajuan Perlu Tindakan", ikon: "fa-inbox",
@@ -488,37 +450,25 @@ export class KoperasiDashboard extends Component {
         const d = this.state.data;
         const tren = d.tren;
         const periode = tren.map((t) => t.periode);
-        const r = d.ringkasan;
         const s = this.state.section;
 
+        const warnaStatus = {
+            draft: WARNA.abu, diajukan: WARNA.jingga, disetujui: WARNA.toska,
+            berjalan: WARNA.biru, lunas: WARNA.hijau, ditolak: WARNA.merah,
+        };
         if (s === "ringkasan") {
             this._chart("utama", this._batang(periode, [
-                { nama: "Simpanan ditagihkan", warna: WARNA.ungu, data: tren.map((t) => t.simpanan) },
                 { nama: "Angsuran ditagihkan", warna: WARNA.biru, data: tren.map((t) => t.angsuran) },
                 { nama: "Diterima", warna: WARNA.hijau, garis: true, data: tren.map((t) => t.diterima) },
             ]));
-            this._chart("samping", this._donat([
-                { name: "Pokok", value: r.saldo_simpok, warna: WARNA.ungu },
-                { name: "Wajib", value: r.saldo_simwa, warna: WARNA.biru },
-                { name: "Sukarela", value: r.saldo_simsula, warna: WARNA.jingga },
-            ]));
-        } else if (s === "simpanan") {
-            this._chart("utama", this._batang(periode, [
-                { nama: "Pokok", warna: WARNA.ungu, data: tren.map((t) => t.simpok) },
-                { nama: "Wajib", warna: WARNA.biru, data: tren.map((t) => t.simwa) },
-                { nama: "Sukarela", warna: WARNA.jingga, data: tren.map((t) => t.simsula) },
-            ]));
             this._chart("samping", this._donat(
-                d.simpanan.per_mitra.map((m) => ({ name: m.name, value: m.total }))));
+                d.pinjaman.per_state.map((x) => ({ name: x.label, value: x.jumlah, warna: warnaStatus[x.state] })),
+                { uang: false }));
         } else if (s === "pinjaman") {
             const salur = d.pinjaman.penyaluran;
             this._chart("utama", this._batang(salur.map((x) => x.label), [
                 { nama: "Pokok dicairkan", warna: WARNA.ungu, data: salur.map((x) => x.pokok) },
             ]));
-            const warnaStatus = {
-                draft: WARNA.abu, diajukan: WARNA.jingga, disetujui: WARNA.toska,
-                berjalan: WARNA.biru, lunas: WARNA.hijau, ditolak: WARNA.merah,
-            };
             this._chart("samping", this._donat(
                 d.pinjaman.per_state.map((x) => ({ name: x.label, value: x.jumlah, warna: warnaStatus[x.state] })),
                 { uang: false }));

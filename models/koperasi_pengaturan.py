@@ -18,19 +18,12 @@ class KoperasiPengaturan(models.Model):
     _description = 'Pengaturan Koperasi'
     _inherit = ['mail.thread', 'koperasi.mata.uang.mixin']
 
-    name = fields.Char(default='Pengaturan Simpanan', required=True, readonly=True)
-    simpok = fields.Monetary(
-        'Simpanan Pokok', tracking=True,
-        help='Ditagihkan satu kali pada tagihan pertama setelah anggota aktif.')
-    simwa = fields.Monetary(
-        'Simpanan Wajib / Bulan', tracking=True,
-        help='Ditagihkan setiap bulan ke semua anggota aktif.')
+    name = fields.Char(default='Pengaturan Koperasi', required=True, readonly=True)
 
     batas_potongan = fields.Float(
         'Batas Potongan Gaji (%)', digits=(5, 2), default=40.0, required=True, tracking=True,
-        help='Bagian gaji bersih anggota yang paling banyak boleh dipotong tiap bulan, '
-             'sudah termasuk simpanan pokok, wajib, dan sukarela. Sisanya menjadi '
-             'angsuran maksimum pinjaman.')
+        help='Bagian gaji bersih anggota yang paling banyak boleh dipotong tiap bulan untuk '
+             'angsuran pinjaman.')
     plafon_kelipatan = fields.Monetary(
         'Pembulatan Plafon', default=1000000, required=True, tracking=True,
         help='Plafon pinjaman dibulatkan ke bawah per kelipatan ini.')
@@ -41,8 +34,6 @@ class KoperasiPengaturan(models.Model):
     ttd_menyetujui_jabatan = fields.Char('Jabatan (Disetujui)', default='Ketua', tracking=True)
     ttd_menyetujui_nama = fields.Char('Nama (Disetujui)', tracking=True)
 
-    _nominal_positif = models.Constraint(
-        'CHECK(simpok >= 0 AND simwa >= 0)', 'Besaran simpanan tidak boleh negatif.')
     _batas_potongan_wajar = models.Constraint(
         'CHECK(batas_potongan > 0 AND batas_potongan <= 100)',
         'Batas potongan gaji harus antara 0 dan 100 persen.')

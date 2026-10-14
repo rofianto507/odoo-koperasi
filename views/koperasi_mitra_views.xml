@@ -38,13 +38,6 @@
                                 <field name="anggota_menunggu_count" widget="statinfo"
                                        string="Menunggu Validasi"/>
                             </button>
-                            <button name="action_lihat_simpanan" type="object"
-                                    class="oe_stat_button" icon="fa-money">
-                                <div class="o_field_widget o_stat_info">
-                                    <span class="o_stat_value"><field name="saldo_simpanan" widget="monetary" options="{'currency_field': 'currency_id'}"/></span>
-                                    <span class="o_stat_text">Total Simpanan</span>
-                                </div>
-                            </button>
                             <button name="action_lihat_pinjaman" type="object"
                                     class="oe_stat_button" icon="fa-credit-card">
                                 <field name="pinjaman_berjalan_count" widget="statinfo"
@@ -162,7 +155,6 @@
                                         <field name="jabatan" optional="show"/>
                                         <field name="currency_id" column_invisible="1"/>
                                         <field name="gaji_bersih" optional="show"/>
-                                        <field name="saldo_total" string="Simpanan" sum="Total"/>
                                         <field name="pinjaman_sisa" sum="Total"/>
                                         <field name="tunggakan_total" sum="Total"
                                                decoration-danger="tunggakan_total &gt; 0"/>

@@ -273,7 +273,7 @@ class KoperasiPortal(http.Controller):
             'id': '/koperasi/portal',
             'name': 'Koperasi - Portal Anggota',
             'short_name': 'Koperasi',
-            'description': 'Simpanan, pinjaman, dan tagihan anggota koperasi.',
+            'description': 'Pinjaman dan tagihan anggota koperasi.',
             'start_url': '/koperasi/portal',
             'scope': '/koperasi/portal',
             'display': 'standalone',
@@ -289,8 +289,6 @@ class KoperasiPortal(http.Controller):
                  'purpose': 'maskable'},
             ],
             'shortcuts': [
-                {'name': 'Simpanan', 'url': '/koperasi/portal#simpanan',
-                 'icons': [{'src': '%sicon-192.png?v=%s' % (ikon, versi), 'sizes': '192x192'}]},
                 {'name': 'Pinjaman', 'url': '/koperasi/portal#pinjaman',
                  'icons': [{'src': '%sicon-192.png?v=%s' % (ikon, versi), 'sizes': '192x192'}]},
             ],
@@ -336,10 +334,6 @@ class KoperasiPortal(http.Controller):
     @http.route('/koperasi/portal/api/beranda', type='jsonrpc', auth='public')
     def api_beranda(self, **kw):
         return self._api(lambda a: a._portal_beranda())
-
-    @http.route('/koperasi/portal/api/simpanan', type='jsonrpc', auth='public')
-    def api_simpanan(self, **kw):
-        return self._api(lambda a: a._portal_simpanan())
 
     @http.route('/koperasi/portal/api/pinjaman', type='jsonrpc', auth='public')
     def api_pinjaman(self, **kw):
@@ -399,8 +393,8 @@ class KoperasiPortal(http.Controller):
             ('Content-Length', len(isi)),
         ])
 
-    @http.route('/koperasi/portal/buku.pdf', type='http', auth='public', website=False)
-    def buku_pdf(self, **kw):
+    @http.route('/koperasi/portal/riwayat.pdf', type='http', auth='public', website=False)
+    def riwayat_pdf(self, **kw):
         anggota = self._anggota()
         if not anggota:
             return request.redirect('/koperasi/portal/login')

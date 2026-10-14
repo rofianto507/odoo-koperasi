@@ -4,7 +4,7 @@ from .koperasi_periode import BULAN_SINGKAT
 from .koperasi_pinjaman import STATE_PINJAMAN
 from .koperasi_tagihan import STATE_TAGIHAN
 
-KOMPONEN = ('simpok', 'simwa', 'simsula', 'angsuran_pokok', 'angsuran_jasa')
+KOMPONEN = ('angsuran_pokok', 'angsuran_jasa')
 JUMLAH_PERIODE = 12
 JUMLAH_BARIS = 8
 JUMLAH_PILIHAN_PERIODE = 36
@@ -17,9 +17,9 @@ class KoperasiDashboard(models.AbstractModel):
     admin mitra otomatis hanya mendapat data mitranya (record rule), dan
     tagihan Draft tidak ikut terhitung baginya.
 
-    Filter periode hanya berlaku untuk angka ALIRAN (tagihan, simpanan yang
-    diterima, pinjaman yang dicairkan, pendapatan). Angka POSISI (anggota,
-    saldo simpanan, sisa pinjaman, tunggakan, antrean) selalu keadaan saat ini.
+    Filter periode hanya berlaku untuk angka ALIRAN (tagihan, pinjaman yang
+    dicairkan, pendapatan). Angka POSISI (anggota, sisa pinjaman, tunggakan,
+    antrean) selalu keadaan saat ini.
 
     Penerimaan dihitung menurut periode pengakuan baris tagihan (`periode_akui_id`),
     sama dengan laporan: tunggakan yang dibayar belakangan masuk ke periode saat dibayar.
@@ -63,7 +63,6 @@ class KoperasiDashboard(models.AbstractModel):
             'ringkasan': self._ringkasan(mitra, dm, baris, terima_p, p),
             'tren': self._tren(baris, p),
             'per_mitra': self._per_mitra(mitra),
-            'simpanan': self._simpanan(dm, terima_p, p),
             'pinjaman': self._pinjaman(dm, p),
             'tagihan': self._tagihan(dm, baris_p, p),
         }
@@ -89,7 +88,7 @@ class KoperasiDashboard(models.AbstractModel):
     # Tagihan: satu query dikelompokkan per tagihan dan status bayar
     # ------------------------------------------------------------------
     def _baris_tagihan(self, dm):
-        """[{tagihan, periode (record), status, simpok, ..., tunggakan}] untuk
+        """[{tagihan, periode (record), status, angsuran_pokok, ..., tunggakan}] untuk
         tagihan yang sudah ditagihkan. Komponen = nilai asli baris, tanpa
         tunggakan, supaya tunggakan yang terbawa tidak terhitung dua kali."""
         Line = self.env['koperasi.tagihan.line']
@@ -103,9 +102,8 @@ class KoperasiDashboard(models.AbstractModel):
             # tepat: dibayar pada periode tagihannya sendiri (bukan pelunasan tunggakan)
             komponen.update(tagihan=tagihan, periode=tagihan.periode_id, status=status, akui=akui,
                             tepat=status == 'dibayar' and akui == tagihan.periode_id)
-            komponen['simpanan'] = komponen['simpok'] + komponen['simwa'] + komponen['simsula']
             komponen['angsuran'] = komponen['angsuran_pokok'] + komponen['angsuran_jasa']
-            komponen['asli'] = komponen['simpanan'] + komponen['angsuran']
+            komponen['asli'] = komponen['angsuran']
             hasil.append(komponen)
         return hasil
 
@@ -120,8 +118,7 @@ class KoperasiDashboard(models.AbstractModel):
         return (belum or 0) + (terbawa or 0)
 
     def _tren(self, baris, p):
-        """12 periode yang berakhir di periode terpilih (atau 12 terakhir):
-        ditagihkan vs diterima, dipisah simpanan dan angsuran."""
+        """12 periode yang berakhir di periode terpilih (atau 12 terakhir): ditagihkan vs diterima."""
         per = {}
 
         def titik(periode):
@@ -129,13 +126,11 @@ class KoperasiDashboard(models.AbstractModel):
                 return None
             return per.setdefault(periode, {
                 'periode': periode.name, 'urut': periode.tanggal_mulai,
-                'simpanan': 0, 'angsuran': 0, 'ditagihkan': 0, 'diterima': 0, 'belum': 0,
-                'simpok': 0, 'simwa': 0, 'simsula': 0})
+                'angsuran': 0, 'ditagihkan': 0, 'diterima': 0, 'belum': 0})
 
         for b in baris:
             t = titik(b['periode'])
             if t:
-                t['simpanan'] += b['simpanan']
                 t['angsuran'] += b['angsuran']
                 t['ditagihkan'] += b['asli']
                 # yang dibayar belakangan tetap belum dibayar pada periode tagihannya
@@ -145,8 +140,6 @@ class KoperasiDashboard(models.AbstractModel):
             t = titik(b['akui']) if b['status'] == 'dibayar' else None
             if t:
                 t['diterima'] += b['asli']
-                for k in ('simpok', 'simwa', 'simsula'):
-                    t[k] += b[k]
         urut = sorted(per.values(), key=lambda t: t['urut'])[-JUMLAH_PERIODE:]
         for t in urut:
             t.pop('urut')
@@ -169,28 +162,17 @@ class KoperasiDashboard(models.AbstractModel):
         anggota = {state: n for state, n in Anggota._read_group(dm, ['state'], ['__count'])}
         pinjaman = {state: (n, sisa or 0) for state, n, sisa in Pinjaman._read_group(
             dm, ['state'], ['__count', 'sisa_pokok:sum'])}
-        saldo = {k: sum(b[k] for b in baris if b['status'] == 'dibayar')
-                 for k in ('simpok', 'simwa', 'simsula')}
-        # dikurangi penarikan simpanan yang sudah dibayar
-        ditarik = self.env['koperasi.penarikan']._read_group(
-            dm + [('state', '=', 'dibayar')], [], ['simpok:sum', 'simwa:sum', 'simsula:sum'])[0]
-        for k, t in zip(('simpok', 'simwa', 'simsula'), ditarik):
-            saldo[k] -= t or 0
         cair = Pinjaman._read_group(self._domain_cair(dm, p), [], ['pokok:sum'])[0][0]
         return {
             # Posisi saat ini
             'mitra': len(mitra),
             'anggota_aktif': anggota.get('aktif', 0),
             'anggota_total': sum(anggota.values()),
-            'saldo_simpok': saldo['simpok'],
-            'saldo_simwa': saldo['simwa'],
-            'saldo_simsula': saldo['simsula'],
-            'saldo_total': sum(saldo.values()),
             'pinjaman_berjalan': pinjaman.get('berjalan', (0, 0))[0],
             'pinjaman_sisa': pinjaman.get('berjalan', (0, 0))[1],
             'tunggakan': self._tunggakan(dm),
             # Aliran pada periode terpilih
-            'simpanan_diterima': sum(b['simpanan'] for b in terima_p),
+            'angsuran_diterima': sum(b['angsuran'] for b in terima_p),
             'pinjaman_cair': cair or 0,
             # Antrean pekerjaan operator / admin mitra
             'anggota_draft': anggota.get('draft', 0),
@@ -207,42 +189,10 @@ class KoperasiDashboard(models.AbstractModel):
             'name': m.name,
             'kode': m.kode,
             'anggota': m.anggota_count,
-            'simpanan': m.saldo_simpanan,
             'pinjaman_berjalan': m.pinjaman_berjalan_count,
             'pinjaman_sisa': m.pinjaman_sisa,
             'tunggakan': m.tunggakan_total,
-        } for m in mitra.sorted(lambda m: -m.saldo_simpanan)]
-
-    def _simpanan(self, dm, terima_p, p):
-        """Simpanan yang diterima (dibayar) pada periode terpilih, atau seluruh saldo."""
-        Line = self.env['koperasi.tagihan.line']
-        dibayar = dm + [('status', '=', 'dibayar')]
-        if p:
-            dibayar.append(('periode_akui_id', '=', p.id))
-        agregat = ['simpok:sum', 'simwa:sum', 'simsula:sum']
-        per_mitra = [{
-            'id': m.id, 'name': m.name,
-            'simpok': pk or 0, 'simwa': w or 0, 'simsula': s or 0,
-            'total': (pk or 0) + (w or 0) + (s or 0),
-        } for m, pk, w, s in Line._read_group(dibayar, ['mitra_id'], agregat)]
-        penabung = [{
-            'id': a.id, 'name': a.name, 'mitra': a.mitra_id.name, 'nomor': a.nomor_anggota or '',
-            'simsula': s or 0, 'total': (pk or 0) + (w or 0) + (s or 0),
-        } for a, pk, w, s in Line._read_group(dibayar, ['anggota_id'], agregat)]
-        jenis = {k: sum(b[k] for b in terima_p) for k in ('simpok', 'simwa', 'simsula')}
-        Anggota = self.env['koperasi.anggota']
-        ikut = Anggota.search_count(dm + [('state', '=', 'aktif'), ('simsula', '>', 0)])
-        komitmen = Anggota._read_group(dm + [('state', '=', 'aktif')], [], ['simsula:sum'])[0][0]
-        return {
-            'simpok': jenis['simpok'],
-            'simwa': jenis['simwa'],
-            'simsula': jenis['simsula'],
-            'total': sum(jenis.values()),
-            'per_mitra': sorted(per_mitra, key=lambda r: -r['total']),
-            'penabung': sorted(penabung, key=lambda r: -r['total'])[:JUMLAH_BARIS],
-            'peserta_simsula': ikut,
-            'simsula_bulanan': komitmen or 0,
-        }
+        } for m in mitra.sorted(lambda m: -m.pinjaman_sisa)]
 
     def _pinjaman(self, dm, p):
         Pinjaman = self.env['koperasi.pinjaman']

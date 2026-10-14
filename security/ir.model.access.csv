@@ -4,7 +4,6 @@ access_koperasi_mitra_operator,koperasi.mitra operator,model_koperasi_mitra,kope
 access_koperasi_anggota_mitra,koperasi.anggota admin mitra,model_koperasi_anggota,koperasi.group_koperasi_mitra,1,1,1,1
 access_koperasi_anggota_operator,koperasi.anggota operator,model_koperasi_anggota,koperasi.group_koperasi_operator,1,1,1,1
 access_koperasi_anggota_gaji_mitra,koperasi.anggota.gaji admin mitra,model_koperasi_anggota_gaji,koperasi.group_koperasi_mitra,1,0,0,0
-access_koperasi_simsula_mitra,koperasi.simsula admin mitra,model_koperasi_simsula,koperasi.group_koperasi_mitra,1,0,0,0
 access_koperasi_pengaturan_mitra,koperasi.pengaturan admin mitra,model_koperasi_pengaturan,koperasi.group_koperasi_mitra,1,0,0,0
 access_koperasi_pengaturan_operator,koperasi.pengaturan operator,model_koperasi_pengaturan,koperasi.group_koperasi_operator,1,1,0,0
 access_koperasi_periode_mitra,koperasi.periode admin mitra,model_koperasi_periode,koperasi.group_koperasi_mitra,1,0,0,0
@@ -23,7 +22,6 @@ access_koperasi_tolak_wizard,koperasi.tolak.wizard,model_koperasi_tolak_wizard,k
 access_koperasi_akun_operator,koperasi.akun operator,model_koperasi_akun,koperasi.group_koperasi_operator,1,1,1,1
 access_koperasi_jurnal_operator,koperasi.jurnal operator,model_koperasi_jurnal,koperasi.group_koperasi_operator,1,1,1,1
 access_koperasi_jurnal_line_operator,koperasi.jurnal.line operator,model_koperasi_jurnal_line,koperasi.group_koperasi_operator,1,1,1,1
-access_koperasi_penarikan_mitra,koperasi.penarikan admin mitra,model_koperasi_penarikan,koperasi.group_koperasi_mitra,1,1,1,1
 access_koperasi_shu_operator,koperasi.shu operator,model_koperasi_shu,koperasi.group_koperasi_operator,1,1,1,1
 access_koperasi_shu_line_operator,koperasi.shu.line operator,model_koperasi_shu_line,koperasi.group_koperasi_operator,1,1,1,1
 access_koperasi_impor_anggota_wizard,koperasi.impor.anggota.wizard,model_koperasi_impor_anggota_wizard,koperasi.group_koperasi_mitra,1,1,1,1

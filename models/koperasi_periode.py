@@ -21,7 +21,7 @@ STATE_PERIODE = [('terbuka', 'Terbuka'), ('ditutup', 'Ditutup')]
 
 
 class KoperasiPeriode(models.Model):
-    """Master periode bulanan: dipakai tagihan, berlaku mulai simsula, dst.
+    """Master periode bulanan: dipakai tagihan, jadwal angsuran, dst.
 
     Cukup isi bulan dan tahun; nama serta tanggal mulai/akhir dihitung.
     """
@@ -66,8 +66,6 @@ class KoperasiPeriode(models.Model):
         pemakai = []
         for model, field, label in (
             ('koperasi.tagihan', 'periode_id', _('tagihan')),
-            ('koperasi.simsula', 'periode_id', _('riwayat simpanan sukarela')),
-            ('koperasi.anggota', 'simsula_periode_id', _('anggota')),
         ):
             jumlah = self.env[model].sudo().with_context(active_test=False).search_count(
                 [(field, 'in', self.ids)])
@@ -156,7 +154,7 @@ class KoperasiPeriode(models.Model):
     def _untuk_tanggal(self, tanggal):
         """Periode yang memuat tanggal; dibuat bila belum ada.
 
-        sudo: dipanggil dari alur otomatis (cron, pencatatan simsula) yang
+        sudo: dipanggil dari alur otomatis (cron pembuatan tagihan) yang
         penggunanya belum tentu berhak membuat master periode.
         """
         tanggal = fields.Date.to_date(tanggal)

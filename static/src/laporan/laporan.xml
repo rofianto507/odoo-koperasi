@@ -107,7 +107,7 @@
                 <!-- Anggota belum dipilih -->
                 <div t-if="state.laporan.perlu_anggota" class="kop-panel kop-empty">
                     <i class="fa fa-address-book-o kop-empty-icon"/>
-                    <span>Pilih anggota pada filter di atas untuk melihat buku simpanannya.</span>
+                    <span>Pilih anggota pada filter di atas untuk melihat riwayatnya.</span>
                 </div>
 
                 <t t-else="">
@@ -118,7 +118,7 @@
                         </span>
                     </div>
 
-                    <!-- Identitas anggota (buku simpanan) -->
+                    <!-- Identitas anggota (riwayat anggota) -->
                     <div t-if="state.laporan.identitas" class="kop-lap-identitas">
                         <t t-foreach="state.laporan.identitas" t-as="idt" t-key="idt_index">
                             <div><span t-esc="idt[0]"/><b t-esc="idt[1]"/></div>

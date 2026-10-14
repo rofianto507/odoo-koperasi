@@ -33,7 +33,7 @@ Operator pusat mengelola mitra (perusahaan) dan memvalidasi anggota; admin tiap 
 |---|---|
 | 🏢 **Mitra** | Kelola perusahaan/mitra koperasi, sync otomatis ke `res.partner` |
 | 👤 **Anggota** | Pendaftaran & validasi bertingkat anggota (pegawai mitra) |
-| 💰 **Simpanan** | Simpanan Pokok, Wajib & Sukarela per anggota; tagihan bulanan otomatis |
+| 🧾 **Tagihan Angsuran** | Tagihan bulanan otomatis per mitra untuk angsuran pinjaman anggota |
 | 🏦 **Pinjaman** | Multi-produk, simulasi plafon, angsuran flat, jadwal angsuran |
 | 🧾 **Tagihan** | Per mitra per bulan, validasi per baris, rantai tunggakan otomatis |
 | 📊 **Dashboard** | ECharts + OWL; kartu, tren 12 bulan, tabel; filter mitra & periode |
@@ -53,7 +53,7 @@ koperasi/
 │   ├── koperasi_anggota.py          # Model koperasi.anggota (+ alur validasi)
 │   ├── koperasi_anggota_gaji.py     # Riwayat gaji anggota
 │   ├── koperasi_kontak_mixin.py     # Mixin sinkronisasi ke res.partner
-│   ├── koperasi_pengaturan.py       # Pengaturan global (simpok, simwa, plafon)
+│   ├── koperasi_pengaturan.py       # Pengaturan global (batas potongan, plafon)
 │   ├── koperasi_periode.py          # Master periode bulan tagihan
 │   ├── koperasi_tagihan.py          # Tagihan & baris tagihan
 │   ├── koperasi_tagihan_xlsx.py     # Generator Excel tagihan
@@ -75,11 +75,11 @@ koperasi/
 │   └── koperasi_rule.xml            # Record rules (operator & admin mitra)
 ├── data/
 │   ├── koperasi_sequence_data.xml   # Sekuens nomor anggota (KOP-<tahun>-00001) & pinjaman
-│   └── koperasi_simpanan_data.xml   # Data pengaturan simpanan awal
+│   └── koperasi_data.xml            # Data instalasi awal (pengaturan, produk, cron tagihan)
 ├── views/
 │   ├── koperasi_mitra_views.xml     # Form & list mitra
 │   ├── koperasi_anggota_views.xml   # Form & list anggota
-│   ├── koperasi_simpanan_views.xml  # Tagihan simpanan
+│   ├── koperasi_pengaturan_views.xml # Pengaturan, Periode, Tagihan
 │   ├── koperasi_pinjaman_views.xml  # Pinjaman & produk pinjaman
 │   ├── koperasi_dashboard_views.xml # Action client dashboard
 │   ├── koperasi_laporan_views.xml   # Action laporan

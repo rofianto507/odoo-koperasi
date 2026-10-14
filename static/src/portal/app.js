@@ -1,5 +1,5 @@
 /* Koperasi — Portal Anggota: aplikasi utama (OWL).
-   Empat halaman dengan navigasi bawah: Beranda, Simpanan, Pinjaman, Profil.
+   Tiga halaman dengan navigasi bawah: Beranda, Pinjaman, Profil.
    Tiap halaman memuat datanya sendiri saat dibuka, jadi angka selalu yang terbaru. */
 (function () {
     'use strict';
@@ -93,30 +93,9 @@
                 <div t-if="state.data" class="kp-isi kp-isi--naik">
                     <t t-set="d" t-value="state.data"/>
 
-                    <div class="kp-kartu kp-kartu--angkat">
-                        <div class="kp-baris">
-                            <div style="min-width:0">
-                                <div class="kp-label">Total Simpanan</div>
-                                <div class="kp-nilai" t-esc="state.sembunyi ? 'Rp ••••••' : rp(d.saldo.total)"/>
-                            </div>
-                            <button class="kp-mata" t-on-click="() => this.state.sembunyi = !this.state.sembunyi"
-                                    t-att-title="state.sembunyi ? 'Tampilkan saldo' : 'Sembunyikan saldo'">
-                                <i t-attf-class="fa #{ state.sembunyi ? 'fa-eye' : 'fa-eye-slash' }"/>
-                            </button>
-                        </div>
-                        <div class="kp-tiga">
-                            <div class="kp-mini"><div class="kp-kecil">Pokok</div>
-                                <div class="kp-mini-nilai" t-esc="state.sembunyi ? '•••' : rp(d.saldo.pokok)"/></div>
-                            <div class="kp-mini"><div class="kp-kecil">Wajib</div>
-                                <div class="kp-mini-nilai" t-esc="state.sembunyi ? '•••' : rp(d.saldo.wajib)"/></div>
-                            <div class="kp-mini"><div class="kp-kecil">Sukarela</div>
-                                <div class="kp-mini-nilai" t-esc="state.sembunyi ? '•••' : rp(d.saldo.sukarela)"/></div>
-                        </div>
-                    </div>
-
                     <div t-if="d.anggota.status === 'keluar'" class="kp-peringatan kp-peringatan--info">
                         <i class="fa fa-info-circle"/>
-                        <span>Anda sudah keluar dari keanggotaan. Riwayat simpanan dan pinjaman tetap dapat dilihat.</span>
+                        <span>Anda sudah keluar dari keanggotaan. Riwayat pinjaman tetap dapat dilihat.</span>
                     </div>
                     <div t-if="d.tunggakan > 0" class="kp-peringatan kp-peringatan--merah">
                         <i class="fa fa-exclamation-triangle"/>
@@ -132,8 +111,7 @@
                             <t t-if="d.tagihan">
                                 <div class="kp-nilai kp-nilai--sedang" t-esc="rp(d.tagihan.total)"/>
                                 <div class="kp-kecil" style="margin-top:4px">
-                                    simpanan <t t-esc="rp(d.tagihan.simpanan)"/>
-                                    <t t-if="d.tagihan.angsuran"> · angsuran <t t-esc="rp(d.tagihan.angsuran)"/></t>
+                                    angsuran <t t-esc="rp(d.tagihan.angsuran)"/>
                                     <t t-if="d.tagihan.tunggakan"> · tunggakan <t t-esc="rp(d.tagihan.tunggakan)"/></t>
                                 </div>
                                 <div class="kp-kecil" style="margin-top:6px">Dipotong dari gaji melalui tempat kerja Anda.</div>
@@ -187,86 +165,6 @@
                     </div>
                 </div>
             </div>`;
-
-        siapkan() { this.state.sembunyi = false; }
-    }
-
-    // ── Simpanan ─────────────────────────────────────────────────────────────
-    class Simpanan extends Halaman {
-        url = '/koperasi/portal/api/simpanan';
-        static template = xml/* xml */`
-            <div>
-                <div class="kp-bar"><i class="fa fa-bank"/> Simpanan</div>
-                ${MUAT}
-                <div t-if="state.data" class="kp-isi">
-                    <t t-set="d" t-value="state.data"/>
-                    <div class="kp-kartu kp-kartu--angkat">
-                        <div class="kp-label">Total Simpanan</div>
-                        <div class="kp-nilai" t-esc="rp(d.saldo.total)"/>
-                        <div class="kp-tiga">
-                            <div class="kp-mini"><div class="kp-kecil">Pokok</div><div class="kp-mini-nilai" t-esc="rp(d.saldo.pokok)"/></div>
-                            <div class="kp-mini"><div class="kp-kecil">Wajib</div><div class="kp-mini-nilai" t-esc="rp(d.saldo.wajib)"/></div>
-                            <div class="kp-mini"><div class="kp-kecil">Sukarela</div><div class="kp-mini-nilai" t-esc="rp(d.saldo.sukarela)"/></div>
-                        </div>
-                        <div t-if="d.bulanan.wajib or d.bulanan.sukarela" class="kp-kecil" style="margin-top:12px">
-                            Setoran tiap bulan: wajib <b t-esc="rp(d.bulanan.wajib)"/>
-                            <t t-if="d.bulanan.sukarela"> · sukarela <b t-esc="rp(d.bulanan.sukarela)"/></t>
-                        </div>
-                    </div>
-
-                    <a class="kp-tombol kp-tombol--garis" href="/koperasi/portal/buku.pdf" target="_blank" rel="noopener">
-                        <i class="fa fa-file-pdf-o"/> Unduh Buku Simpanan (PDF)
-                    </a>
-
-                    <div class="kp-segmen">
-                        <button t-att-class="state.tab === 'mutasi' ? 'aktif' : ''" t-on-click="() => this.state.tab = 'mutasi'">Mutasi</button>
-                        <button t-att-class="state.tab === 'penarikan' ? 'aktif' : ''" t-on-click="() => this.state.tab = 'penarikan'">
-                            Penarikan<t t-if="d.penarikan.length"> (<t t-esc="d.penarikan.length"/>)</t>
-                        </button>
-                    </div>
-
-                    <div t-if="state.tab === 'mutasi'" class="kp-kartu">
-                        <div t-if="d.mutasi.length" class="kp-daftar">
-                            <t t-foreach="d.mutasi" t-as="m" t-key="m_index">
-                                <div class="kp-item">
-                                    <div class="kp-item-isi">
-                                        <div class="kp-item-judul" t-esc="m.periode"/>
-                                        <div class="kp-kecil">
-                                            <span t-att-class="lencana(m.status)" t-esc="m.status"/>
-                                            saldo <t t-esc="rp(m.saldo)"/>
-                                        </div>
-                                    </div>
-                                    <div t-att-class="m.mutasi ? tanda(m.mutasi) : 'kp-item-nilai kp-kecil'" t-esc="m.mutasi ? bertanda(m.mutasi) : rp(0)"/>
-                                </div>
-                            </t>
-                        </div>
-                        <div t-else="" class="kp-kosong"><i class="fa fa-inbox"/>Belum ada mutasi simpanan.</div>
-                    </div>
-
-                    <div t-else="" class="kp-kartu">
-                        <div t-if="d.penarikan.length" class="kp-daftar">
-                            <t t-foreach="d.penarikan" t-as="t" t-key="t.nomor">
-                                <div class="kp-item">
-                                    <div class="kp-item-isi">
-                                        <div class="kp-item-judul" t-esc="t.jenis"/>
-                                        <div class="kp-kecil">
-                                            <t t-esc="t.nomor"/> · <t t-esc="tgl(t.tanggal)"/>
-                                        </div>
-                                        <span t-att-class="lencana(t.status)" t-esc="t.status_label"/>
-                                    </div>
-                                    <div class="kp-item-nilai" t-esc="rp(t.total)"/>
-                                </div>
-                            </t>
-                        </div>
-                        <div t-else="" class="kp-kosong"><i class="fa fa-inbox"/>Belum ada penarikan simpanan.</div>
-                        <div class="kp-kecil" style="margin-top:10px">
-                            Penarikan simpanan diajukan melalui admin di tempat kerja Anda.
-                        </div>
-                    </div>
-                </div>
-            </div>`;
-
-        siapkan() { this.state.tab = 'mutasi'; }
     }
 
     // ── Pinjaman ─────────────────────────────────────────────────────────────
@@ -416,6 +314,10 @@
                         </div>
                     </div>
 
+                    <a class="kp-tombol kp-tombol--garis" href="/koperasi/portal/riwayat.pdf" target="_blank" rel="noopener">
+                        <i class="fa fa-file-pdf-o"/> Unduh Riwayat Anggota (PDF)
+                    </a>
+
                     <div class="kp-kartu">
                         <div class="kp-kartu-judul"><span><i class="fa fa-lock"/> Keamanan</span></div>
                         <button t-if="!state.formPassword" class="kp-tombol kp-tombol--garis" t-on-click="() => this.state.formPassword = true">
@@ -557,18 +459,16 @@
     // ── Kerangka aplikasi ────────────────────────────────────────────────────
     const TAB = [
         { id: 'beranda', label: 'Beranda', ikon: 'fa-home' },
-        { id: 'simpanan', label: 'Simpanan', ikon: 'fa-bank' },
         { id: 'pinjaman', label: 'Pinjaman', ikon: 'fa-credit-card' },
         { id: 'profil', label: 'Profil', ikon: 'fa-user-circle' },
     ];
 
     class Aplikasi extends Component {
         static props = ['*'];
-        static components = { Beranda, Simpanan, Pinjaman, Profil };
+        static components = { Beranda, Pinjaman, Profil };
         static template = xml/* xml */`
             <div class="kp-shell">
                 <Beranda t-if="state.tab === 'beranda'" anggota="state.anggota" pindah.bind="pindah"/>
-                <Simpanan t-elif="state.tab === 'simpanan'" anggota="state.anggota"/>
                 <Pinjaman t-elif="state.tab === 'pinjaman'" anggota="state.anggota"/>
                 <Profil t-else="" anggota="state.anggota" perusahaan="props.perusahaan"
                         toast.bind="toast" perbaruiAnggota.bind="perbaruiAnggota"/>

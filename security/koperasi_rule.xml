@@ -32,20 +32,6 @@
             <field name="groups" eval="[(4, ref('group_koperasi_operator'))]"/>
         </record>
 
-        <record id="rule_koperasi_simsula_own" model="ir.rule">
-            <field name="name">Riwayat simsula: admin mitra hanya anggota mitranya</field>
-            <field name="model_id" ref="model_koperasi_simsula"/>
-            <field name="domain_force">[('anggota_id.mitra_id', '=', user.koperasi_mitra_id.id)]</field>
-            <field name="groups" eval="[(4, ref('group_koperasi_mitra'))]"/>
-        </record>
-
-        <record id="rule_koperasi_simsula_operator" model="ir.rule">
-            <field name="name">Riwayat simsula: operator melihat semua</field>
-            <field name="model_id" ref="model_koperasi_simsula"/>
-            <field name="domain_force">[(1, '=', 1)]</field>
-            <field name="groups" eval="[(4, ref('group_koperasi_operator'))]"/>
-        </record>
-
         <!-- Tagihan: admin mitra hanya melihat tagihan mitranya yang sudah
              ditagihkan; Draft masih bahan kerja operator. -->
         <record id="rule_koperasi_tagihan_own" model="ir.rule">
@@ -101,21 +87,6 @@
         <record id="rule_koperasi_pinjaman_angsuran_operator" model="ir.rule">
             <field name="name">Angsuran: operator melihat semua</field>
             <field name="model_id" ref="model_koperasi_pinjaman_angsuran"/>
-            <field name="domain_force">[(1, '=', 1)]</field>
-            <field name="groups" eval="[(4, ref('group_koperasi_operator'))]"/>
-        </record>
-
-        <!-- Penarikan simpanan: admin mitra hanya anggota mitranya -->
-        <record id="rule_koperasi_penarikan_own" model="ir.rule">
-            <field name="name">Penarikan: admin mitra hanya penarikan mitranya</field>
-            <field name="model_id" ref="model_koperasi_penarikan"/>
-            <field name="domain_force">[('mitra_id', '=', user.koperasi_mitra_id.id)]</field>
-            <field name="groups" eval="[(4, ref('group_koperasi_mitra'))]"/>
-        </record>
-
-        <record id="rule_koperasi_penarikan_operator" model="ir.rule">
-            <field name="name">Penarikan: operator melihat semua</field>
-            <field name="model_id" ref="model_koperasi_penarikan"/>
             <field name="domain_force">[(1, '=', 1)]</field>
             <field name="groups" eval="[(4, ref('group_koperasi_operator'))]"/>
         </record>
